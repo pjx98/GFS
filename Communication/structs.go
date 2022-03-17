@@ -6,6 +6,7 @@ type Message struct {
 	Target_pid   int    `json:"target_pid"`
 }
 
+// Helper functions for structs.
 func create_message(message_type string, source_pid int, target_pid int) Message {
 	message := Message{
 		Message_type: message_type,

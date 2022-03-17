@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func test(context *gin.Context) {
-	context.IndentedJSON(http.StatusOK, "Welcome to the Okay File System")
+func landing_page(context *gin.Context) {
+	context.IndentedJSON(http.StatusOK, "Welcome to the Okay File System !")
 }
 
 func post_message(context *gin.Context) {
@@ -26,8 +26,7 @@ func post_message(context *gin.Context) {
 
 func Listen(node_pid int, port_no int) {
 	router := gin.Default()
-	router.GET("/", test)
-	router.GET("/test", test)
+	router.GET("/", landing_page)
 	router.POST("/message", post_message)
 
 	fmt.Printf("Node %d listening on port %d \n", node_pid, port_no)

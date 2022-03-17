@@ -1,7 +1,6 @@
 package Communication
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
@@ -13,15 +12,13 @@ import (
 // Capitalize function names to export them.
 // Just call this function with the respective params to send a post request to the intended port.
 func Send_message(port_no int, message_type string, source_pid int, target_pid int) {
-	fmt.Println("FUNCTION TRIGERRED")
-	request_url := "http://localhost:" + strconv.Itoa(port_no) + "/message"
-	fmt.Println(request_url)
+	request_url := BASE_URL + strconv.Itoa(port_no) + "/message"
 	message, _ := json.Marshal(create_message(message_type, source_pid, target_pid))
 	response, err := http.Post(request_url, "application/json" ,bytes.NewBuffer(message))
 
 	//Handle Error
 	if err != nil {
-		log.Fatalf("An Error Occured %v", err)
+		log.Fatalf("Send_message: An Error Occured - %v", err)
 	}
 
 	defer response.Body.Close()
