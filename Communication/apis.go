@@ -11,7 +11,7 @@ func test(context *gin.Context) {
 	context.IndentedJSON(http.StatusOK, "Welcome to the Okay File System")
 }
 
-func send_message(context *gin.Context) {
+func post_message(context *gin.Context) {
 	var message Message
 
 	// Call BindJSON to bind the received JSON to
@@ -20,7 +20,7 @@ func send_message(context *gin.Context) {
 		fmt.Println("Invalid message object received.")
         return
     }
-	context.IndentedJSON(http.StatusOK, message)
+	context.IndentedJSON(http.StatusOK, message.Message_type + " message from Node " + strconv.Itoa(message.Source_pid) +" was received by Node " + strconv.Itoa(message.Target_pid))
 }
 
 
@@ -28,7 +28,7 @@ func Listen(node_pid int, port_no int) {
 	router := gin.Default()
 	router.GET("/", test)
 	router.GET("/test", test)
-	router.POST("/message", send_message)
+	router.POST("/message", post_message)
 
 	fmt.Printf("Node %d listening on port %d \n", node_pid, port_no)
 	router.Run("localhost:" + strconv.Itoa(port_no))
