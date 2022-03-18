@@ -2,15 +2,12 @@ package chunk
 
 import (
 	"fmt"
-	"sync/atomic"
-
-	// "sync/atomic"
-	"net/http"
-	"strconv"
-
 	helper "gfs.com/master/helper"
 	structs "gfs.com/master/structs"
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"strconv"
+	"sync/atomic"
 )
 
 // chunkLocks := map[string]bool
@@ -23,8 +20,7 @@ func landing_page(context *gin.Context) {
 func post_message(context *gin.Context) {
 	var message structs.Message
 
-	// Call BindJSON to bind the received JSON to
-	// newAlbum.
+	// Call BindJSON to bind the received JSON to message.
 	if err := context.BindJSON(&message); err != nil {
 		fmt.Println("Invalid message object received.")
 		return
@@ -51,15 +47,16 @@ func listen() {}
 func checkChunkSpace(ChunkId string, dataSize int32) {
 	if dataSize < *chunkSizeMap[ChunkId] {
 		atomic.AddInt32(chunkSizeMap[ChunkId], -1*dataSize)
-
 	}
 }
+
+func append() {}
 
 func waitForACK() {}
 
 func sendACK() {}
 
-func append() {}
+func writeMutations() {}
 
 func replicate() {}
 

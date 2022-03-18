@@ -3,12 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	client "gfs.com/master/client"
+	helper "gfs.com/master/helper"
+	structs "gfs.com/master/structs"
 	"log"
 	"net"
-
-	client "gfs.com/master/client"
-	"gfs.com/master/helper"
-	structs "gfs.com/master/structs"
 )
 
 type MetaData struct {
