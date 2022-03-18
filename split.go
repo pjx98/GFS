@@ -11,7 +11,7 @@
 
 // func splitFile(filePath string, fileId string) {
 
-// 		fileToBeChunked := filePath
+// 		fileToBeChunked := "filePath"
 
 // 		file, err := os.Open(fileToBeChunked)
 

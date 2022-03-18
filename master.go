@@ -14,6 +14,7 @@ type MetaData struct {
 
 	// key: file id int, value: chunk array
 	// eg file 1 = [file1_chunk1, file1_chunk2, file1_chunk3]
+	
 	file_id_to_chunkId map[string][]string
 
 	// map each file chunk to a chunk server (port number)
@@ -25,7 +26,7 @@ type MetaData struct {
 Split file into equally chunked sizes
 Edit metaData to include the new chunks
 */
-func splitFile(filePath string, fileId string) {
+func splitFile(filePath string, fileId string, metaData MetaData) {
 
 	fileToBeChunked := filePath
 
@@ -51,10 +52,10 @@ func splitFile(filePath string, fileId string) {
 	fmt.Printf("Splitting to %d pieces.\n", totalPartsNum)
 
 	file_id_to_chunkId_array := []string{}
-	chunkId_to_port_array := []string{}
-	port_number := 8000
+	//port_number := 8000
 
 	for i := uint64(0); i < totalPartsNum; i++ {
+			chunkId_to_port_array := []string{}
 
 			partSize := int(math.Min(fileChunk, float64(fileSize-int64(i*fileChunk))))
 			partBuffer := make([]byte, partSize)
@@ -64,34 +65,39 @@ func splitFile(filePath string, fileId string) {
 			// write to disk
 			// create file chunk
 			fileName := fileId + "_chunk" + strconv.FormatUint(i, 10)
-			_, err := os.Create(fileName)
 
-			if err != nil {
+			// create replicated chunks at other chunkserver
+			for i := 8000; i < 8003; i++{
+				replicated_location :=  "./Files/Port" + strconv.Itoa(i) + "/" + fileName
+				_, err := os.Create(replicated_location)
+				
+				if err != nil {
 					fmt.Println(err)
 					os.Exit(1)
+				}
 			}
 
 			// record file chunk in metaData
-			file_id_to_chunkId_array := append(file_id_to_chunkId_array, fileName)
+			// [file2 : [chunk0, chunk1, chunk2]]
+			file_id_to_chunkId_array = append(file_id_to_chunkId_array, fileName)
 			metaData.file_id_to_chunkId[fileId] = file_id_to_chunkId_array
 
+			
+
 			// write/save buffer to respective port
-			ioutil.WriteFile(fileName, partBuffer, os.ModeAppend)
-			final_location := "./Port" + strconv.Itoa(port_number) + "/" + fileName + ".txt"
-			port_number ++
-			current_location := "./" + fileName + ".txt"
-			err = os.Rename(current_location, final_location)
+			for i := 8000; i < 8003; i++{
+				replicated_location :=  "./Files/Port" + strconv.Itoa(i) + "/" + fileName
+				ioutil.WriteFile(replicated_location, partBuffer, os.ModeAppend)
+				fmt.Println("Split to : ", fileName)
+				fmt.Printf("Replicating %v to %v", fileName, replicated_location)
 
-			if err != nil {
-				log.Fatal(err)
+				// record chunk to port in metaData
+				chunkId_to_port_array = append(chunkId_to_port_array, strconv.Itoa(i))
+				metaData.chunkId_to_port[fileName] = chunkId_to_port_array
 			}
-
-			// record chunk to port in metaData
-			chunkId_to_port_array := append(chunkId_to_port_array, fileName)
-			metaData.chunkId_to_port[fileName] = chunkId_to_port_array
-
 			fmt.Println("Split to : ", fileName)
 	}
+
 }
 
 // server listening to client on their respective ports
@@ -129,13 +135,14 @@ func main() {
 	listenToClient(2, "8001")
 	listenToClient(3, "8002")
 
-	initiateClient()
+	initiateClient()	
 
 	var metaData MetaData
 	metaData.file_id_to_chunkId = make(map[string][]string)
 	metaData.chunkId_to_port = make(map[string][]string)
-	splitFile("./file2.txt", "file2")
-
+	splitFile("./file2.txt", "file2", metaData)
+	fmt.Println(metaData.file_id_to_chunkId)
+	fmt.Println(metaData.chunkId_to_port)
 
 	for {
 
