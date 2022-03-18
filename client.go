@@ -18,7 +18,4 @@ func initiateClient() {
 			log.Fatalln(err)
 		}
 	}
-	for {
-		
-	}
 }
