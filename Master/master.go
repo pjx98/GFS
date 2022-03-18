@@ -1,14 +1,15 @@
-package master
+package main
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 	"net"
-
-	"gfs.com/master/helper"
+	"encoding/json"
 	structs "gfs.com/master/structs"
+	client "gfs.com/master/client" 
 )
+
 
 // server listening to client on their respective ports
 func listenToClient(Client_id int, Port string) {
@@ -40,13 +41,37 @@ func acceptConnection(Client_id int, listener net.Listener) {
 
 func listenClient(conn net.Conn) {
 	fmt.Printf("Master connected to Client\n ")
-	for {
-		buffer := make([]byte, 1400)
-		dataSize, err := conn.Read(buffer)
-		if err != nil {
-			fmt.Println("Connection has closed")
-			return
-		}
+        for {
+                buffer := make([]byte, 1400)
+                dataSize, err := conn.Read(buffer)
+                if err != nil {
+                    fmt.Println("Connection has closed")
+                    return
+                }
+
+                //This is the message you received
+                data := buffer[:dataSize]
+				var message structs.Message	
+				json.Unmarshal([]byte(data), &message)
+
+				last_chunk := message.Filename
+				dest_chunkserver := []int{8001, 8002, 8003}
+				return_message := structs.CreateMessage("Append", last_chunk + "_c0", message.Filename, 8000, dest_chunkserver)
+				
+				data,err = json.Marshal(return_message)
+
+				if err != nil {
+					log.Fatalln(err)
+				}
+
+                // Send the message back
+                _, err = conn.Write(data)
+                if err != nil {
+                        log.Fatalln(err)
+                }
+                fmt.Print("Message sent: ", string(data))
+        }
+}
 
 		//This is the message you received
 		data := buffer[:dataSize]
@@ -72,5 +97,7 @@ func main() {
 
 	// listening to client on port 8000
 	listenToClient(1, "8000")
+	client.StartClient()
+	
 
 }
