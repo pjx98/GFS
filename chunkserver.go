@@ -1,41 +1,40 @@
 package main
 
 import (
+	"encoding/gob"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 )
 
 func main() {
 
-	chunkserver1, error1 := net.Listen("tcp", "localhost:8000")
-	fmt.Println("Chunkserver1 is listening on Port 8000")
-	if error1 != nil {
-		log.Fatal(error1)
-	}
+	var start_port int = 8000
+	//loop from 8000 to 8002
+	var end_port int = 8003
 
-	chunkserver2, error2 := net.Listen("tcp", "localhost:8001")
-	fmt.Println("Chunkserver2 is listening on Port 8001")
-	if error2 != nil {
-		log.Fatal(error2)
-	}
+	for i := start_port; i < end_port; i++ {
 
-	chunkserver3, error3 := net.Listen("tcp", "localhost:8002")
-	fmt.Println("Chunkserver3 is listening on Port 8002")
-	if error3 != nil {
-		log.Fatal(error3)
+		chunkserver, error1 := net.Listen("tcp", "localhost:"+strconv.Itoa(i))
+		fmt.Println("Chunkserver" + strconv.Itoa(i) + " is listening on Port:" + strconv.Itoa(i))
+		if error1 != nil {
+			log.Fatal(error1)
+		}
+		go acceptconnection(chunkserver)
+		initiateClient()
+
 	}
 
 	// Listen for connections
-	go acceptconnection(chunkserver1)
-	go acceptconnection(chunkserver2)
-	go acceptconnection(chunkserver3)
 }
 
 //Listen for messages and reply
 func listenConnection(conn net.Conn) {
 	for {
+
 		buffer := make([]byte, 1400)
 		dataSize, err := conn.Read(buffer)
 		if err != nil {
@@ -45,22 +44,31 @@ func listenConnection(conn net.Conn) {
 		//array index should contain
 
 		//This is the message you received
-		//byte array
+		//problem with decoding the message
 		data := buffer[:dataSize]
+		dec := gob.NewDecoder(data)
+
+		backToStringSlice := string([]byte(data))
+
+		fmt.Println(backToStringSlice)
+
+		//gob.NewDecoder(data).Decode(&result)
 		// the 0th index of the data array stores the name of the chunk server
 		chunk_server_name := string(data[0])
+		fmt.Println("chunkservername is" + string(chunk_server_name))
 		// the 1st index of this data array is the data which is supposed to be written to the chunk servers
 		data_to_be_written := data[1]
 		// the 2nd index of this data array which specifies which file to be written to since there are 3 chunk servers
 		file_name_to_be_written := string(data[2])
+		//the 3rd index of this data array specifies the message type ,like it can append, read , heartbeat etc
+		message_type := string(data[3])
 
-		fmt.Print("Received message: ", string(data))
 		switch {
 		//this hasn't been implemented yet
-		case string(data) == "Heartbeat":
+		case message_type == "Heartbeat":
 			//invoke some function here
 			continue
-		default:
+		case message_type == "Append":
 			//so this
 			appendtofile(chunk_server_name, data_to_be_written, file_name_to_be_written)
 			b := []byte("Data received and appended to file as requested")
@@ -99,4 +107,11 @@ func appendtofile(name string, data byte, filenametobewritten string) {
 		log.Fatal(err)
 	}
 
+}
+func convert(b []byte) string {
+	s := make([]string, len(b))
+	for i := range b {
+		s[i] = strconv.Itoa(int(b[i]))
+	}
+	return strings.Join(s, ",")
 }
