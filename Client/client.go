@@ -1,17 +1,19 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"strconv"
-	"encoding/json"
+
 	//"reflect"
+	"gfs.com/master/helper"
 	structs "gfs.com/master/structs"
 )
 
 // Connect client to master [Done]
-func connectMaster(master_port string){
+func connectMaster(master_port string) {
 
 	address := "localhost:" + master_port
 	fmt.Println("Master port is " + address)
@@ -24,8 +26,8 @@ func connectMaster(master_port string){
 
 	// Create append message json
 	msgJson := &structs.Message{
-		Message_type: "Append",
-		Filename: "f1", 
+		MessageType: helper.DATA_APPEND,
+		Filename:    "f1",
 	}
 	data, _ := json.Marshal(msgJson)
 	fmt.Println(string(data)) // debug
@@ -41,7 +43,7 @@ func callAppend(conn net.Conn, req []byte) {
 	// write to master port
 	_, err := conn.Write(req)
 	if err != nil {
-			log.Fatalln(err)
+		log.Fatalln(err)
 	}
 
 	for {
@@ -51,7 +53,7 @@ func callAppend(conn net.Conn, req []byte) {
 			fmt.Println("The connection has closed!")
 			return
 		}
-		
+
 		// Read the reply from master
 		data := buffer[:dataSize]
 		fmt.Println("Received message: ", string(data))
@@ -68,7 +70,7 @@ func callAppend(conn net.Conn, req []byte) {
 // Connect client to chunk servers [Done]
 func connectChunks(message structs.Message) {
 
-	for _, s := range message.Target_pid{
+	for _, s := range message.TargetPid {
 		address := "localhost:" + strconv.Itoa(s)
 		_, err := net.Dial("tcp", address)
 		if err != nil {
@@ -78,29 +80,26 @@ func connectChunks(message structs.Message) {
 	}
 }
 
-
-
 // Chunkserver ports, data to send, chunk_id
-func sendChunks(){
+func sendChunks() {
 
 }
 
 // Receive first ACK (data_received) from primary chunk server
-func checkFirstACK(){
+func checkFirstACK() {
 
 }
 
 // Send write data signal to primary chunk server
-func sendWriteData(){
+func sendWriteData() {
 
 }
 
 // Receive second ACK from primary chunk server after successful write
-func checkSuccessWrite(){
+func checkSuccessWrite() {
 
 }
 
-
-func StartClient(){
+func StartClient() {
 	connectMaster("8000")
 }
