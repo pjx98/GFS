@@ -10,7 +10,7 @@ type Message struct {
 	// 1 and 2 index is the secondary chunkserver
 }
 
-func create_message(message_type string, append_last_chunk string, filename string, source_pid int, target_pid []int) Message {
+func CreateMessage(message_type string, append_last_chunk string, filename string, source_pid int, target_pid []int) Message {
 	message := Message{
 		Message_type: message_type,
 		Append_last_chunk: append_last_chunk,

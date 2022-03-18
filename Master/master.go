@@ -54,10 +54,10 @@ func listenClient(conn net.Conn){
 
 				last_chunk := message.Filename
 				dest_chunkserver := []int{8001, 8002, 8003}
-				return_message := structs.create_message("Append", last_chunk + "_c0", message.Filename, 8000, dest_chunkserver)
-				fmt.Printf("Species: %s, Description: %s", message.Species, bird.Description)
-                fmt.Print("Received message: ", string(data))
-
+				return_message := structs.CreateMessage("Append", last_chunk + "_c0", message.Filename, 8000, dest_chunkserver)
+				
+				data,err = json.Marshal(return_message)
+				
                 // Send the message back
                 _, err = conn.Write(data)
                 if err != nil {
