@@ -5,7 +5,8 @@ import (
 	"log"
 	"net"
 	"encoding/json"
-	structs "gfs.com/master/structs" 
+	structs "gfs.com/master/structs"
+	client "gfs.com/master/Client" 
 )
 
 
@@ -72,6 +73,7 @@ func main() {
 
 	// listening to client on port 8000
 	listenToClient(1, "8000")
+	client.startClient()
 	
 
 }
