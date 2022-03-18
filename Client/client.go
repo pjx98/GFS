@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"encoding/json"
+	//"reflect"
 	structs "gfs.com/master/structs"
 )
 
@@ -54,21 +55,26 @@ func callAppend(conn net.Conn, req []byte) {
 		// Read the reply from master
 		data := buffer[:dataSize]
 		fmt.Println("Received message: ", string(data))
+
+		var reply structs.Message
+		json.Unmarshal(data, &reply)
+		//fmt.Println(reflect.TypeOf(reply)) // debug
+		connectChunks(reply)
 		break
 	}
 
 }
 
-// Connect client to chunk servers
-func connectChunks() {
+// Connect client to chunk servers [Done]
+func connectChunks(message structs.Message) {
 
-	// for ports from response from master, conenct via tcp
-	for i:= 8000; i < 8003; i++{
-		address := "localhost:" + strconv.Itoa(i)
+	for _, s := range message.Target_pid{
+		address := "localhost:" + strconv.Itoa(s)
 		_, err := net.Dial("tcp", address)
 		if err != nil {
 			log.Fatalln(err)
 		}
+		fmt.Printf("Connected to chunk server: %d\n", s)
 	}
 }
 
