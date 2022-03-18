@@ -57,7 +57,11 @@ func listenClient(conn net.Conn){
 				return_message := structs.CreateMessage("Append", last_chunk + "_c0", message.Filename, 8000, dest_chunkserver)
 				
 				data,err = json.Marshal(return_message)
-				
+
+				if err != nil {
+					log.Fatalln(err)
+				}
+
                 // Send the message back
                 _, err = conn.Write(data)
                 if err != nil {
