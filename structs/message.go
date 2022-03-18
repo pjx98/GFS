@@ -1,22 +1,26 @@
 package structs
 
 type Message struct {
-	Message_type string `json:"message_type"`
-	Append_last_chunk string `json:"append_last_chunk"`
-	Filename string `json:"filename"` // filename which client requests to append
-	Source_pid   int    `json:"source_pid"`
-	Target_pid   []int    `json:"target_pid"`
+	MessageType string
+	ChunkId     string
+	Filename    string // filename which client requests to append
+	SourcePid   int
+	TargetPid   []int
+	Payload     string
+	Size        int32
 	// 0 index is the primary chunkserver
 	// 1 and 2 index is the secondary chunkserver
 }
 
-func CreateMessage(message_type string, append_last_chunk string, filename string, source_pid int, target_pid []int) Message {
+func CreateMessage(messageType string, chunkId string, filename string, sourcePid int, targetPid []int, payload string, size int32) Message {
 	message := Message{
-		Message_type: message_type,
-		Append_last_chunk: append_last_chunk,
-		Filename : filename,
-		Source_pid:   source_pid,
-		Target_pid:   target_pid,
+		MessageType: messageType,
+		ChunkId:     chunkId,
+		Filename:    filename,
+		SourcePid:   sourcePid,
+		TargetPid:   targetPid,
+		Payload:     payload,
+		Size:        size,
 	}
 	return message
 }

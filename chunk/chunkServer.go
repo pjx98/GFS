@@ -2,16 +2,19 @@ package chunk
 
 import (
 	"fmt"
+	"sync/atomic"
+
 	// "sync/atomic"
 	"net/http"
 	"strconv"
 
+	helper "gfs.com/master/helper"
 	structs "gfs.com/master/structs"
 	"github.com/gin-gonic/gin"
 )
 
 // chunkLocks := map[string]bool
-// chunkSizeMap := map[string]int
+var chunkSizeMap = make(map[string]*int32)
 
 func landing_page(context *gin.Context) {
 	context.IndentedJSON(http.StatusOK, "Welcome to the Okay File System !")
@@ -21,14 +24,18 @@ func post_message(context *gin.Context) {
 	var message structs.Message
 
 	// Call BindJSON to bind the received JSON to
-    // newAlbum.
-    if err := context.BindJSON(&message); err != nil {
+	// newAlbum.
+	if err := context.BindJSON(&message); err != nil {
 		fmt.Println("Invalid message object received.")
-        return
-    }
-	context.IndentedJSON(http.StatusOK, message.Message_type + " message from Node " + strconv.Itoa(message.Source_pid) +" was received by Node " + strconv.Itoa(message.Target_pid))
-}
+		return
+	}
+	context.IndentedJSON(http.StatusOK, message.MessageType+" message from Node "+strconv.Itoa(message.SourcePid)+" was received by Node "+strconv.Itoa(message.TargetPid[0]))
 
+	switch message.MessageType {
+	case helper.DATA_APPEND:
+		checkChunkSpace(message.ChunkId, message.Size)
+	}
+}
 
 func Listen(node_pid int, port_no int) {
 	router := gin.Default()
@@ -39,19 +46,23 @@ func Listen(node_pid int, port_no int) {
 	router.Run("localhost:" + strconv.Itoa(port_no))
 }
 
-func listen(){}
+func listen() {}
 
-func checkChunkSpace(){}
+func checkChunkSpace(ChunkId string, dataSize int32) {
+	if dataSize < *chunkSizeMap[ChunkId] {
+		atomic.AddInt32(chunkSizeMap[ChunkId], -1*dataSize)
 
-func waitForACK(){}
+	}
+}
 
-func sendACK(){}
+func waitForACK() {}
 
-func append(){}
+func sendACK() {}
 
-func replicate(){}
+func append() {}
 
-func sendData(){}
+func replicate() {}
 
-func connectToChunk(){}
+func sendData() {}
 
+func connectToChunk() {}
