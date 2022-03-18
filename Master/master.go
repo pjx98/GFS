@@ -5,9 +5,8 @@ import (
 	"log"
 	"net"
 	"encoding/json"
-	Message "Project/structs" 
+	structs "gfs.com/master/structs" 
 )
-
 
 
 // server listening to client on their respective ports
@@ -50,8 +49,12 @@ func listenClient(conn net.Conn){
 
                 //This is the message you received
                 data := buffer[:dataSize]
-				var message Message	
+				var message structs.Message	
 				json.Unmarshal([]byte(data), &message)
+
+				last_chunk := message.Filename
+				dest_chunkserver := []int{8001, 8002, 8003}
+				return_message := structs.create_message("Append", last_chunk + "_c0", message.Filename, 8000, dest_chunkserver)
 				fmt.Printf("Species: %s, Description: %s", message.Species, bird.Description)
                 fmt.Print("Received message: ", string(data))
 
