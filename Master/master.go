@@ -1,15 +1,14 @@
-package main
+package master
 
 import (
 	"fmt"
 	"log"
 	"net"
 	"encoding/json"
+	Message "Project/structs" 
 )
 
-type message struct{
 
-}
 
 // server listening to client on their respective ports
 func listenToClient(Client_id int, Port string) {
@@ -51,6 +50,9 @@ func listenClient(conn net.Conn){
 
                 //This is the message you received
                 data := buffer[:dataSize]
+				var message Message	
+				json.Unmarshal([]byte(data), &message)
+				fmt.Printf("Species: %s, Description: %s", message.Species, bird.Description)
                 fmt.Print("Received message: ", string(data))
 
                 // Send the message back
@@ -61,8 +63,6 @@ func listenClient(conn net.Conn){
                 fmt.Print("Message sent: ", string(data))
         }
 }
-
-
 
 
 func main() {
