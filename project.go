@@ -56,8 +56,10 @@ func listenConnection(conn net.Conn) {
 
 		fmt.Print("Received message: ", string(data))
 		switch {
+		//this hasn't been implemented yet
 		case string(data) == "Heartbeat":
 			//invoke some function here
+			continue
 		default:
 			//so this
 			appendtofile(chunk_server_name, data_to_be_written, file_name_to_be_written)
@@ -73,6 +75,8 @@ func listenConnection(conn net.Conn) {
 
 	}
 }
+
+//Create a connection between the sender and the chunk server.
 func acceptconnection(listen net.Listener) {
 	defer listen.Close()
 	for {
@@ -85,8 +89,8 @@ func acceptconnection(listen net.Listener) {
 	}
 }
 func appendtofile(name string, data byte, filenametobewritten string) {
-	// so each chunk servver has one
-	file, err := os.OpenFile("C:/Users/legac/OneDrive/Desktop/DSCproject/"+name+"/"+filenametobewritten+".txt", os.O_APPEND|os.O_WRONLY, 0644)
+	// so each chunk server will append to the directory that is listed in the array, the chunk servers each will contain a folder which have chunk servers
+	file, err := os.OpenFile("./"+name+"/"+filenametobewritten+".txt", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println(err)
 	}
