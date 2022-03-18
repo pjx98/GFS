@@ -46,7 +46,7 @@ func initiateClient() {
 
 		data := buffer[:dataSize]
 		fmt.Println("Received message: ", string(data))
-		break
+		continue
 
 	}
 }

@@ -14,7 +14,7 @@ func main() {
 	var start_port int = 8000
 	//loop from 8000 to 8002
 	var end_port int = 8003
-	initiateClient()
+
 	for i := start_port; i < end_port; i++ {
 
 		chunkserver, error1 := net.Listen("tcp", "localhost:"+strconv.Itoa(i))
