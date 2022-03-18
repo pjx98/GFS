@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"encoding/json"
 )
 
 type message struct{
@@ -29,25 +30,45 @@ func acceptConnection(Client_id int, listener net.Listener){
 	defer listener.Close()
 
 	for {
-		_, err := listener.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Server connected to Client %v\n", Client_id)
-
+		fmt.Printf("Master receives a new connection\n")
+		go listenClient(conn)
 	}
 }
+
+func listenClient(conn net.Conn){
+	fmt.Printf("Master connected to Client\n ")
+        for {
+                buffer := make([]byte, 1400)
+                dataSize, err := conn.Read(buffer)
+                if err != nil {
+                    fmt.Println("Connection has closed")
+                    return
+                }
+
+                //This is the message you received
+                data := buffer[:dataSize]
+                fmt.Print("Received message: ", string(data))
+
+                // Send the message back
+                _, err = conn.Write(data)
+                if err != nil {
+                        log.Fatalln(err)
+                }
+                fmt.Print("Message sent: ", string(data))
+        }
+}
+
+
 
 
 func main() {
 
-	// create servers with different ports
+	// listening to client on port 8000
 	listenToClient(1, "8000")
-	listenToClient(2, "8001")
-	listenToClient(3, "8002")
-	listenToClient(4, "8003")
-	listenToClient(5, "8004")
-
 	
 
 }
