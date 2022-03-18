@@ -1,4 +1,4 @@
-package master
+package main
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"net"
 	"encoding/json"
 	structs "gfs.com/master/structs"
-	client "gfs.com/master/Client" 
+	client "gfs.com/master/client" 
 )
 
 
@@ -77,7 +77,7 @@ func main() {
 
 	// listening to client on port 8000
 	listenToClient(1, "8000")
-	client.startClient()
+	client.StartClient()
 	
 
 }

@@ -95,6 +95,6 @@ func checkSuccessWrite(){
 }
 
 
-func startClient(){
+func StartClient(){
 	connectMaster("8000")
 }
