@@ -3,8 +3,7 @@ package main
 import (
 
 	//"fmt"
-	"bytes"
-	"encoding/gob"
+
 	"fmt"
 	"log"
 	"net"
@@ -23,22 +22,20 @@ func initiateClient() {
 		}
 		//	print("hello world")
 		//
-		message := [4]string{}
+		message := ""
 		//the 0 index is the chunk server to append
-		message[0] = "chunk_server_" + strconv.Itoa(i)
+		message += "chunk_server_" + strconv.Itoa(i) + "."
 		// the 1st index is to just write a message to the file
-		message[1] = "hello world"
+		message += "hello world" + "."
 		//2nd index is the file to be appended
-		message[2] = "file" + strconv.Itoa(file_number)
+		message += "file" + strconv.Itoa(file_number) + "."
 		file_number += 1
 		//3rd index message type
-		message[3] = "Append"
-		buf := &bytes.Buffer{}
-		gob.NewEncoder(buf).Encode(message)
-		bs := buf.Bytes()
+		message += "Append"
+
 		//send the value across the port in byte array
-		_, err = conn.Write(bs)
-		fmt.Println("message sent is " + string(bs))
+		_, err = conn.Write([]byte(message))
+		fmt.Println("message sent is " + message)
 
 		buffer := make([]byte, 1400)
 		dataSize, err := conn.Read(buffer)
