@@ -13,8 +13,8 @@ import (
 
 // Capitalize function names to export them.
 // Just call this function with the respective params to send a post request to the intended port.
-func SendMessage(portNo int, messageType string, clientPort int, chunkId string, filename string, sourcePort int, targetPorts []int, payload string, payloadSize int64) {
-	message := structs.CreateMessage(messageType, clientPort, chunkId, filename, sourcePort, targetPorts, payload, payloadSize)
+func SendMessage(portNo int, messageType string, clientPort int, PCS int, SCS []int, fileName string, chunkId string, payload string, payloadSize int64, chunkOffset int64, sourcePort int, targetPorts []int) {
+	message := structs.CreateMessage(messageType, clientPort, PCS, SCS, fileName, chunkId, payload, payloadSize, chunkOffset, sourcePort, targetPorts)
 	SendMessageV2(portNo, message, sourcePort, targetPorts)
 }
 

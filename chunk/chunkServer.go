@@ -4,12 +4,13 @@ package chunk
 
 import (
 	"fmt"
-	helper "gfs.com/master/helper"
-	structs "gfs.com/master/structs"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
 	"strconv"
+
+	helper "gfs.com/master/helper"
+	structs "gfs.com/master/structs"
+	"github.com/gin-gonic/gin"
 )
 
 var (
@@ -72,7 +73,9 @@ func appendMessageHandler(message structs.Message) {
 			// This is so that this for loop is only trigerred in the Primary Chunk Server and not the Secondary Chunk Servers.
 		}
 		waitForACKs(len(message.TargetPorts), message.ChunkId, message.ClientPort)
-		helper.SendMessage(message.ClientPort, helper.ACK_APPEND, message.ClientPort, message.ChunkId, message.Filename, message.TargetPorts[0], []int{message.ClientPort}, "", 0) // ACK to Client.
+		helper.SendMessage(message.ClientPort, helper.ACK_APPEND, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.PrimaryChunkServer, []int{message.ClientPort}) // ACK to Client.
+	} else { // Only for the Secondary Chunk Servers.
+		helper.SendMessage(message.PrimaryChunkServer, helper.ACK_APPEND, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.TargetPorts[0], []int{message.PrimaryChunkServer})
 	}
 }
 
@@ -93,7 +96,9 @@ func commitDataHandler(message structs.Message) {
 			// This is so that this for loop is only trigerred in the Primary Chunk Server and not the Secondary Chunk Servers.
 		}
 		waitForACKs(len(message.TargetPorts), message.ChunkId, message.ClientPort)
-		helper.SendMessage(message.ClientPort, helper.ACK_COMMIT, message.ClientPort, message.ChunkId, message.Filename, message.TargetPorts[0], []int{message.ClientPort}, "", 0) // ACK to Client.
+		helper.SendMessage(message.ClientPort, helper.ACK_COMMIT, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.PrimaryChunkServer, []int{message.ClientPort}) // ACK to Client.
+	} else { // Only for the Secondary Chunk Servers.
+		helper.SendMessage(message.PrimaryChunkServer, helper.ACK_COMMIT, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.TargetPorts[0], []int{message.PrimaryChunkServer})
 	}
 	releaseChunk(message.ChunkId)
 }
