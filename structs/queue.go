@@ -24,7 +24,7 @@ func (queue Queue) Dequeue() (string, error) {
 }
 
 // Peek - returns the first element from our queue without updating queue
-func (queue *Queue) Peek() (string, error) {
+func (queue Queue) Peek() (string, error) {
 	if queue.IsEmpty() {
 		return "None", errors.New("empty queue")
 	}

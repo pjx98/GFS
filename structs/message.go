@@ -8,10 +8,11 @@ type Message struct {
 	SourcePort  int
 	TargetPorts []int // 0 index is the primary chunkserver & 1 and 2 index is the secondary chunkserver
 	Payload     string
-	PayloadSize int32
+	PayloadSize int64
+	ChunkOffset int64 // Offset at which the data is to be written
 }
 
-func CreateMessage(messageType string, clientPort int, chunkId string, fileName string, sourcePort int, targetPorts []int, payload string, payloadSize int32) Message {
+func CreateMessage(messageType string, clientPort int, chunkId string, fileName string, sourcePort int, targetPorts []int, payload string, payloadSize int64) Message {
 	message := Message{
 		MessageType: messageType,
 		ClientPort:  clientPort,
