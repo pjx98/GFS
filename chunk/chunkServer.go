@@ -1,20 +1,23 @@
-package chunk
+package m
 
 import (
 	"fmt"
-	helper "gfs.com/master/helper"
-	structs "gfs.com/master/structs"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
 	"sync/atomic"
+
+	helper "gfs.com/master/helper"
+	structs "gfs.com/master/structs"
+	"github.com/gin-gonic/gin"
 )
+
+var port int
 
 // chunkLocks := map[string]bool
 var chunkSizeMap = make(map[string]*int32)
 
 func landing_page(context *gin.Context) {
-	context.IndentedJSON(http.StatusOK, "Welcome to the Okay File System !")
+	context.IndentedJSON(http.StatusOK, "Welcome to the Okay File System ! This is a chunk server.")
 }
 
 func post_message(context *gin.Context) {
@@ -25,29 +28,25 @@ func post_message(context *gin.Context) {
 		fmt.Println("Invalid message object received.")
 		return
 	}
-	context.IndentedJSON(http.StatusOK, message.MessageType+" message from Node "+strconv.Itoa(message.SourcePid)+" was received by Node "+strconv.Itoa(message.TargetPid[0]))
+	context.IndentedJSON(http.StatusOK, message.MessageType+" message from Node "+strconv.Itoa(message.SourcePort)+" was received by Node "+strconv.Itoa(message.TargetPorts[0]))
 
 	switch message.MessageType {
 	case helper.DATA_APPEND:
-		checkChunkSpace(message.ChunkId, message.Size)
+		handleAppendMessage(message)
 	}
 }
 
-func Listen(node_pid int, port_no int) {
+func listen(nodePid int, portNo int) {
 	router := gin.Default()
 	router.GET("/", landing_page)
 	router.POST("/message", post_message)
 
-	fmt.Printf("Node %d listening on port %d \n", node_pid, port_no)
-	router.Run("localhost:" + strconv.Itoa(port_no))
+	fmt.Printf("Node %d listening on port %d \n", nodePid, portNo)
+	router.Run("localhost:" + strconv.Itoa(portNo))
 }
 
-func listen() {}
-
-func checkChunkSpace(ChunkId string, dataSize int32) {
-	if dataSize < *chunkSizeMap[ChunkId] {
-		atomic.AddInt32(chunkSizeMap[ChunkId], -1*dataSize)
-	}
+func handleAppendMessage(message structs.Message) {
+	storeTempFile(message.Payload)
 }
 
 func append() {}
@@ -62,4 +61,10 @@ func replicate() {}
 
 func sendData() {}
 
-func connectToChunk() {}
+func storeTempFile(chunkId string, payload string) {
+
+}
+
+func ChunkServer(nodePid int, portNo int) {
+	go listen(nodePid, portNo)
+}

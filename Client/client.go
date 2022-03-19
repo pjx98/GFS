@@ -70,7 +70,7 @@ func callAppend(conn net.Conn, req []byte) {
 // Connect client to chunk servers [Done]
 func connectChunks(message structs.Message) {
 
-	for _, s := range message.TargetPid {
+	for _, s := range message.TargetPorts {
 		address := "localhost:" + strconv.Itoa(s)
 		_, err := net.Dial("tcp", address)
 		if err != nil {

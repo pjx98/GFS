@@ -3,18 +3,19 @@ package helper
 import (
 	"bytes"
 	"encoding/json"
-	structs "gfs.com/master/structs"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
+
+	structs "gfs.com/master/structs"
 )
 
 // Capitalize function names to export them.
 // Just call this function with the respective params to send a post request to the intended port.
-func Send_message(portNo int, messageType string, chunkId string, filename string, sourcePid int, targetPid []int, payload string, size int32) {
+func Send_message(portNo int, messageType string, chunkId string, filename string, sourcePort int, targetPorts []int, payload string, payloadSize int32) {
 	request_url := BASE_URL + strconv.Itoa(portNo) + "/message"
-	message, _ := json.Marshal(structs.CreateMessage(messageType, chunkId, filename, sourcePid, targetPid, payload, size))
+	message, _ := json.Marshal(structs.CreateMessage(messageType, chunkId, filename, sourcePort, targetPorts, payload, payloadSize))
 	response, err := http.Post(request_url, "application/json", bytes.NewBuffer(message))
 
 	//Handle Error
