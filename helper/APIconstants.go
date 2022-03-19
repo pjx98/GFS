@@ -13,8 +13,8 @@ const (
 	DATA_APPEND = "DATA_APPEND" // send chunk data to append
 	DATA_COMMIT = "DATA_COMMIT" // tell chunk to write
 
-	ACK_APPEND       = "ACK_APPEND"       // chunk server ACK data to be appened has been received
-	ACK_COMMIT       = "ACK_COMMIT"       // chunk server ACK data has been committed
+	ACK_APPEND       = "ACK_APPEND"       // chunk server ACK that data to be appened has been received
+	ACK_COMMIT       = "ACK_COMMIT"       // chunk server ACK that data has been committed
 	ACK_CHUNK_CREATE = "ACK_CHUNK_CREATE" // chunk server ACK that new chunk has been created
 
 	CREATE_NEW_CHUNK = "CREATE_NEW_CHUNK" // ask the master to create a new chunk

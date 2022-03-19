@@ -13,14 +13,20 @@ import (
 
 // Capitalize function names to export them.
 // Just call this function with the respective params to send a post request to the intended port.
-func Send_message(portNo int, messageType string, chunkId string, filename string, sourcePort int, targetPorts []int, payload string, payloadSize int32) {
+func SendMessage(portNo int, messageType string, chunkId string, filename string, sourcePort int, targetPorts []int, payload string, payloadSize int32) {
+	message := structs.CreateMessage(messageType, chunkId, filename, sourcePort, targetPorts, payload, payloadSize)
+	SendMessageV2(portNo, message, targetPorts)
+}
+
+func SendMessageV2(portNo int, message structs.Message, targetPorts []int) { // V2 takes in a Message object directly.
+	message.TargetPorts = targetPorts // Used to reset the TargetPorts attribute of the Message struct.
 	request_url := BASE_URL + strconv.Itoa(portNo) + "/message"
-	message, _ := json.Marshal(structs.CreateMessage(messageType, chunkId, filename, sourcePort, targetPorts, payload, payloadSize))
-	response, err := http.Post(request_url, "application/json", bytes.NewBuffer(message))
+	messageJSON, _ := json.Marshal(message)
+	response, err := http.Post(request_url, "application/json", bytes.NewBuffer(messageJSON))
 
 	//Handle Error
 	if err != nil {
-		log.Fatalf("Send_message: An Error Occured - %v", err)
+		log.Fatalf("SendMessage: An Error Occured - %v", err)
 	}
 
 	defer response.Body.Close()
@@ -29,5 +35,5 @@ func Send_message(portNo int, messageType string, chunkId string, filename strin
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Printf(string(body))
+	log.Println(string(body))
 }
