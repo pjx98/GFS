@@ -13,13 +13,13 @@ import (
 
 // Capitalize function names to export them.
 // Just call this function with the respective params to send a post request to the intended port.
-func SendMessage(portNo int, messageType string, chunkId string, filename string, sourcePort int, targetPorts []int, payload string, payloadSize int32) {
-	message := structs.CreateMessage(messageType, chunkId, filename, sourcePort, targetPorts, payload, payloadSize)
-	SendMessageV2(portNo, message, targetPorts)
+func SendMessage(portNo int, messageType string, clientPort int, chunkId string, filename string, sourcePort int, targetPorts []int, payload string, payloadSize int32) {
+	message := structs.CreateMessage(messageType, clientPort, chunkId, filename, sourcePort, targetPorts, payload, payloadSize)
+	SendMessageV2(portNo, message, sourcePort, targetPorts)
 }
 
-func SendMessageV2(portNo int, message structs.Message, targetPorts []int) { // V2 takes in a Message object directly.
-	message.TargetPorts = targetPorts // Used to reset the TargetPorts attribute of the Message struct.
+func SendMessageV2(portNo int, message structs.Message, sourcePort int, targetPorts []int) { // V2 takes in a Message object directly.
+	message.SourcePort, message.TargetPorts = sourcePort, targetPorts // Used to reset the TargetPorts attribute of the Message struct.
 	request_url := BASE_URL + strconv.Itoa(portNo) + "/message"
 	messageJSON, _ := json.Marshal(message)
 	response, err := http.Post(request_url, "application/json", bytes.NewBuffer(messageJSON))

@@ -79,7 +79,7 @@ func listenClient(conn net.Conn, metaData MetaData) {
 		}
 
 		dest_chunkserver := []int{8001, 8002, 8003}
-		return_message := structs.CreateMessage(helper.DATA_APPEND, last_chunk, message.Filename, 8000, dest_chunkserver, "", 0)
+		return_message := structs.CreateMessage(helper.DATA_APPEND, 8000, last_chunk, message.Filename, 8000, dest_chunkserver, "", 0)
 
 		data, err = json.Marshal(return_message)
 
