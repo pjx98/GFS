@@ -119,7 +119,7 @@ func commitDataHandler(message structs.Message) {
 
 func createNewChunkHandler(message structs.Message) {
 	createChunk(message.TargetPorts[0], message.ChunkId)
-	helper.SendMessage(message.ClientPort, helper.ACK_CHUNK_CREATE, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.TargetPorts[0], []int{message.ClientPort}) // ACK to Client.
+	helper.SendMessage(message.SourcePort, helper.ACK_CHUNK_CREATE, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.TargetPorts[0], []int{message.SourcePort}) // ACK to Client.
 }
 
 func writeMutations(chunkId string, clientPort int, chunkOffset int64) {
@@ -128,12 +128,7 @@ func writeMutations(chunkId string, clientPort int, chunkOffset int64) {
 		fmt.Println(err)
 	}
 	defer fh.Close()
-	// pad file until offset
-	fileByteSize, _ := fh.Stat()
-	padDataBytes := []byte(strings.Repeat("~", int(chunkOffset)-int(fileByteSize.Size())))
-	if _, err := fh.WriteAt(padDataBytes, fileByteSize.Size()); err != nil {
-		fmt.Println(err)
-	}
+	
 	// write data
 	writeData, _ := (*chunkIdAppendDataMap)[chunkId][clientPort].Peek()
 	writeDataBytes := []byte(writeData)
@@ -158,6 +153,7 @@ func lockChunk(chunkId string) {
 	for {
 		if !(*chunkLocks)[chunkId] {
 			(*chunkLocks)[chunkId] = true
+			break
 		}
 	}
 }
