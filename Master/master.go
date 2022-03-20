@@ -90,7 +90,12 @@ func listenClient(conn net.Conn, metaData MetaData) {
         } else {
 
           // check if append < chunk size
-          if (message.PayloadSize < )
+
+          // get last chunk 
+          array := metaData.file_id_to_chunkId[message.Filename]
+          last_chunk = metaData.file_id_to_chunkId[message.Filename][len(array)-1]
+
+          if (message.PayloadSize < metaData.file_id_to_chunkId_offset[message.Filename][last_chunk])
 
 
 
