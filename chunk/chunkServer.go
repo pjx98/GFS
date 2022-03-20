@@ -4,7 +4,7 @@ package chunk
 // TODO: When to pad and how to know to Pad.
 // TODO: Fault tolerance, handle cases when secondary fails. How to retry?
 // TODO: Return correct offset to client
-// TODO: Create chunk function
+
 import (
 	"fmt"
 	helper "gfs.com/master/helper"
@@ -113,6 +113,7 @@ func commitDataHandler(message structs.Message) {
 
 func createNewChunkHandler(message structs.Message) {
 	createChunk(message.TargetPorts[0], message.ChunkId)
+	helper.SendMessage(message.ClientPort, helper.ACK_CHUNK_CREATE, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.TargetPorts[0], []int{message.ClientPort}) // ACK to Client.
 }
 
 func writeMutations(chunkId string, clientPort int, chunkOffset int64) {
