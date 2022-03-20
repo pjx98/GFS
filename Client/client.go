@@ -2,16 +2,16 @@ package client
 
 import (
 	"os"
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
 	"log"
-	//"net"
+	"github.com/gin-gonic/gin"
 	"strconv"
 	"path/filepath"
 	"math"
 	"strings"
 	//"reflect"
-	"bytes"
+	//"bytes"
 	"io/ioutil"
 	"net/http"
 	"gfs.com/master/helper"
@@ -19,10 +19,40 @@ import (
 	
 )
 
+// Go routine to check for ACK
+func listen(pid int, portNo int){
+	router := gin.Default()
+	router.POST("/message", messageHandler)
+
+	fmt.Printf("Client %d listening on port %d \n", pid, portNo)
+	router.Run("localhost:" + strconv.Itoa(portNo))
+}
+
+func messageHandler(context *gin.Context){
+	var message structs.Message
+
+	// Call BindJSON to bind the received JSON to message.
+	if err := context.BindJSON(&message); err != nil {
+		fmt.Println("Invalid message object received.")
+		return
+	}
+	context.IndentedJSON(http.StatusOK, message.MessageType+" ACK message from Node "+strconv.Itoa(message.SourcePort)+" was received by Client "+strconv.Itoa(message.ClientPort))
+	
+	switch message.MessageType {
+	case helper.DATA_APPEND:
+		connectChunks(message)
+	case helper.ACK_APPEND:
+		sendCommitData(message)
+	case helper.ACK_COMMIT:
+		fmt.Println("Append successfully finished")
+	}
+}
+
+
 // Connect client to master [Done]
-func callMasterAppend(filename string) {
+func callMasterAppend(pid int, portNo int, filename string) {
 	var numChunks uint64
-	var masterData []byte
+
 	// debug to check whats the main directory, just leave it here
 	path, err := os.Getwd()
 	if err != nil {
@@ -40,11 +70,11 @@ func callMasterAppend(filename string) {
 		numChunks = 1
 	}
 
-	// If no split, just append as normal
-	// Otherwise append for each file split
+	// If no split, just append as normal, otherwise append for each file split
 	if numChunks == 1{
-		masterData = callAppendMaster(filename, fileByteSize)
-		connectChunks(masterData)
+		// send to master
+		fmt.Println("Sending append request to Master")
+		helper.SendMessage(8080, helper.DATA_APPEND, portNo, 0, nil, filename, "", "", fileByteSize, 0, portNo, nil)
 	} else{
 		filePrefix := removeExtension(filename)
 		for i := uint64(0); i < numChunks; i++{
@@ -52,13 +82,48 @@ func callMasterAppend(filename string) {
 			smallFileSize := getFileSize(smallFile)
 			// fmt.Println(smallFile) // debug
 			// fmt.Println(smallFileSize) // debug
-			masterData = callAppendMaster(smallFile,smallFileSize)
-			connectChunks(masterData)
-			//fmt.Printf("Response from Master: %s ", string(masterData)) // debug
+
+			// send to master
+			fmt.Println("Sending append request to Master")
+			helper.SendMessage(8080, helper.DATA_APPEND, portNo, 0, nil, smallFile, "", "", smallFileSize, 0, portNo, nil)
 		}
 	}
 }
 
+// Connect client to chunk servers [Done]
+func connectChunks(message structs.Message){
+	fmt.Println("Connecting to primary chunk")
+
+	// Add relevant info into the message
+	message.SourcePort = message.ClientPort
+	primary := message.PrimaryChunkServer
+
+	// Read the file
+	rel, err := filepath.Rel("GFS/Master", "GFS/Client/" + message.Filename)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	text, err := ioutil.ReadFile(rel)
+    if err != nil {
+        fmt.Print(err)
+		os.Exit(1)
+    }
+	message.Payload = string(text)
+	fmt.Println(message) // debug, just check the final message
+	helper.SendMessageV2(primary, message, message.ClientPort, message.TargetPorts)
+}
+
+// Send write data signal to primary chunk server [Done]
+func sendCommitData(message structs.Message) {
+
+	message.MessageType = helper.DATA_COMMIT
+	// fmt.Println(message) // debug
+	helper.SendMessageV2(message.PrimaryChunkServer, message, message.ClientPort, message.TargetPorts)
+
+}
+
+// ===== HELPER FUNCTIONS =====
 // Get size of file trying to write to [Done]
 func getFileSize(filename string) (int64) {
 	
@@ -138,124 +203,10 @@ func removeExtension(fpath string) string {
 	return strings.TrimSuffix(fpath, ext)
 }
 
-// Send API request to master for append [Done]
-func callAppendMaster(filename string, fileByteSize int64)[]byte{
-	// Create append message json
-	msgJson := &structs.Message{
-		MessageType: helper.DATA_APPEND,
-		
-		ClientPort: 8086,
-		PrimaryChunkServer: 0,
-		SecondaryChunkServers: nil,
-		
-		Filename: filename,
-		ChunkId: "",
-		Payload: "",
-		PayloadSize: fileByteSize,
-		ChunkOffset: 0,
-
-		SourcePort: 8086,
-		TargetPorts: nil,
-	}
-
-	post, _ := json.Marshal(msgJson)
-	//fmt.Println(string(post)) // debug
-	responseBody := bytes.NewBuffer(post)
-
-	// Master port number = 8080
-	resp, err := http.Post("http://localhost:8080/client/append", "application/json", responseBody)
-	
-	// Handle Error
-	if err != nil {
-		log.Fatalf("An Error Occured %v", err)
-	}
-	defer resp.Body.Close()
-	
-	// Read the response body
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	// Print body
-	//sb := string(body)
-	//log.Printf(sb)
-	return body
-
-}
-
-// Connect client to chunk servers [TO-DO]
-func connectChunks(masterData []byte) {
-	var message structs.Message
-
-	json.Unmarshal(masterData, &message)
-	// Add relevant info into the message	
-	message.SourcePort = message.ClientPort
-
-	// Read the file
-	rel, err := filepath.Rel("GFS/Master", "GFS/Client/" + message.Filename)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	text, err := ioutil.ReadFile(rel)
-    if err != nil {
-        fmt.Print(err)
-		os.Exit(1)
-    }
-    //fmt.Println(string(text)) // debug
-
-	message.Payload = string(text)
-
-	fmt.Println(message) // debug, just check the final message
-
-	// Send to the primary chunk
-	chunkReply := sendPrimaryChunk(message)
-	fmt.Println(chunkReply)
-}
-
-// Sends data to primary chunk [TO-DO]
-func sendPrimaryChunk(message structs.Message)[]byte{
-	
-	// Which chunkserver to contact
-	primary := message.PrimaryChunkServer
-	post, _ := json.Marshal(message)
-	//fmt.Println(string(post)) // debug
-	responseBody := bytes.NewBuffer(post)
-
-	url := "http://localhost:" + strconv.Itoa(primary) + "/message"
-	resp, err := http.Post(url, "application/json", responseBody)
-	
-	// Handle Error
-	if err != nil {
-		log.Fatalf("An Error Occured %v", err)
-	}
-	defer resp.Body.Close()
-	
-	// Read the response body
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	return body
-}
-
-// Receive first ACK (data_received) from primary chunk server [TO-DO]
-func checkFirstACK() {
-
-}
-
-// Send write data signal to primary chunk server [TO-DO]
-func sendCommietData() {
-
-}
- 
-// Receive second ACK from primary chunk server after successful write [TO-DO]
-func checkSuccessWrite() {
-
-}
-
-func StartClient() {
-	callMasterAppend("test.txt")
+// Master calls this function once it has finished set-up
+func StartClient(pid int, portNo int) {
+	go listen(pid, portNo)
+	callMasterAppend(pid, portNo, "test.txt")
 }
 
 // func main(){

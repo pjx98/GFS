@@ -8,7 +8,7 @@ import (
   structs "gfs.com/master/structs"
   chunk "gfs.com/master/chunk"
   "log"
-  "net"
+  //"net"
   "github.com/gin-gonic/gin"
   "net/http"
   "strings"
@@ -96,7 +96,7 @@ func postMessageHandler(context *gin.Context) {
 		fmt.Println("Invalid message object received.")
 		return
 	}
-	context.IndentedJSON(http.StatusOK, message.MessageType+" message from Node "+strconv.Itoa(message.SourcePort)+" was received by Node "+strconv.Itoa(message.TargetPorts[0]))
+	context.IndentedJSON(http.StatusOK, message.MessageType+" message from Node "+strconv.Itoa(message.SourcePort)+" was received by Master")
 
 
 
@@ -262,11 +262,11 @@ func main(){
   metaData.file_id_to_chunkId_offset = make(map[string]map[string]int64)
 
 
-  go listen()
+  go listen(0, 8080)
   chunk.ChunkServer(2,8081)
   chunk.ChunkServer(3,8082)
   chunk.ChunkServer(4,8083)
-  client.StartClient()
+  client.StartClient(7, 8086)
   // // listening to client on port 8000
   // listenToClient(1, "8000", metaData)
   // client.StartClient()
