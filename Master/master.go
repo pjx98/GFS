@@ -71,30 +71,25 @@ func MapRandomKeyGet(mapI interface{}) interface{} {
   return keys[rand.Intn(len(keys))].Interface()
 }
 
-func listen(){
-  router := gin.Default()
-  router.POST("/client/append", listenClientAppend)
-  router.POST("/message", receiveChunkServerAck)
+func listen(nodePid int, portNo int) {
+	router := gin.Default()
+	router.POST("/message", postMessageHandler)
 
-  fmt.Printf("Master listening on port 8080 \n")
-  router.Run("localhost:8080")
+	fmt.Printf("Node %d listening on port %d \n", nodePid, portNo)
+	router.Run("localhost:" + strconv.Itoa(portNo))
 }
 
-func listenClientAppend(context *gin.Context) {
-  var message structs.Message
+func postMessageHandler(context *gin.Context) {
+	var message structs.Message
 
-  // Call BindJSON to bind the received JSON to message.
-  if err := context.BindJSON(&message); err != nil {
-    fmt.Println("Invalid message object received.")
-    return
-  }
-  append_response := appendMessageHandler(message)
-  context.IndentedJSON(http.StatusOK, append_response) // this is the reply
-  //context.IndentedJSON(http.StatusOK, message.MessageType+" message from Client "+strconv.Itoa(message.SourcePort)+" was received by Master")  
-  fmt.Printf("Message sent back to Client %d\n", message.SourcePort)
-}
+	// Call BindJSON to bind the received JSON to message.
+	if err := context.BindJSON(&message); err != nil {
+		fmt.Println("Invalid message object received.")
+		return
+	}
+	context.IndentedJSON(http.StatusOK, message.MessageType+" message from Node "+strconv.Itoa(message.SourcePort)+" was received by Node "+strconv.Itoa(message.TargetPorts[0]))
 
-func appendMessageHandler(message structs.Message)(structs.Message){
+
   chunkServerArray := map[int]bool{
     8081 : false,
     8082 : false,
@@ -124,26 +119,43 @@ func appendMessageHandler(message structs.Message)(structs.Message){
       // check if append data < chunk size
       if message.PayloadSize < remaining_space{
 
-        return_message := sendClientChunkServers(message, last_chunk)
+        sendClientChunkServers(message, last_chunk)
 
       }else if message.PayloadSize == remaining_space{
         // append == chunksize
-        return_message := sendClientChunkServers(message, last_chunk)
+        sendClientChunkServers(message, last_chunk)
 
         createNewChunk(message, chunkServerArray)
 
       }else{
         // append > chunksize
-        appendGreaterThanChunk(message)
+        appendGreaterThanChunk(message, chunkServerArray)
       }
     }
   }
-  return return_message
-
-  // dest_chunkserver := []int{8081, 8082, 8083}
-  // return_message := structs.CreateMessage(helper.DATA_APPEND, 8086, dest_chunkserver[0], dest_chunkserver[1:], message.Filename, last_chunk, "DATA", message.PayloadSize, 0, 8080, dest_chunkserver)
-  // return return_message
 }
+
+func create_new_chunkId(message structs.Message) string{
+  // map[string]map[string]int64
+  array := metaData.file_id_to_chunkId[message.Filename]
+  current_chunkId := metaData.file_id_to_chunkId[message.Filename][len(array)-1]
+  c_index := strings.Index(current_chunkId, "c")
+  chunkId := current_chunkId[c_index+1:]
+
+  //increment by 1
+  int_chunkId, err := strconv.Atoi(chunkId) 
+  if err != nil {
+    log.Fatalln(err)
+  }
+
+  int_chunkId++
+  string_chunkId := string(int_chunkId)
+  new_chunkId := message.Filename + "_c" + string_chunkId
+  //metaData.file_id_to_chunkId[message.Filename] = append(metaData.file_id_to_chunkId[message.Filename], new_chunkId)
+
+  return new_chunkId
+}
+
 
 // ask chunkservers to create new chunks
 func createNewChunk(message structs.Message, chunkServerArray map[int]bool){
@@ -151,6 +163,10 @@ func createNewChunk(message structs.Message, chunkServerArray map[int]bool){
   
   // ask the 3 chunkserver to create chunks
   for i := 0; i < 3; i++ {
+    chunkServer := new_chunkServers[i]
+    chunkId := create_new_chunkId(message)
+    helper.SendMessage(chunkServer, "CREATE_NEW_CHUNK", 8086, chunkServer, []int{chunkServer}, message.Filename, chunkId, "",
+      0, 0, 8086, []int{chunkServer}, )
 
     msgJson := &structs.Message{
       MessageType: helper.CREATE_NEW_CHUNK,
@@ -344,116 +360,6 @@ func appendGreaterThanChunk(message structs.Message, chunkServerArray map[int]bo
 
 }
 
-// server listening to client on their respective ports
-func listenToClient(Client_id int, Port string, metaData MetaData) {
-
-  address := "localhost:" + Port
-
-  fmt.Printf("Master listening on Port %v\n", Port)
-
-  listener, err := net.Listen("tcp", address)
-  if err != nil {
-    log.Fatal(err)
-  }
-  go acceptConnection(Client_id, listener, metaData)
-}
-
-// connection to client established
-func acceptConnection(Client_id int, listener net.Listener, metaData MetaData) {
-  defer listener.Close()
-
-  for {
-    conn, err := listener.Accept()
-    if err != nil {
-      log.Fatal(err)
-    }
-    fmt.Printf("Master receives a new connection\n")
-    go listenClient(conn, metaData)
-  }
-}
-
-func listenClient(conn net.Conn, metaData MetaData) {
-  fmt.Printf("Master connected to Client\n ")
-  for {
-    buffer := make([]byte, 1400)
-    dataSize, err := conn.Read(buffer)
-
-    if err != nil {
-      fmt.Println("Connection has closed")
-      return
-    }
-
-    //This is the message you received
-    data := buffer[:dataSize]
-    var message structs.Message
-    json.Unmarshal([]byte(data), &message)
-
-    last_chunk := ""
-
-    // check message Type
-    // if message is createAck
-    if (message.MessageType == "createAck"){
-      //do something
-    } else{
-    // if message type is an append request from client
-
-      if _, ok := metaData.file_id_to_chunkId[message.Filename]; ok {
-        // if file does not exist in metaData, create a new entry and named it fn.c0
-        if ok == false {
-          metaData.file_id_to_chunkId[message.Filename] = []string{message.Filename + "_c0"}
-        } else {
-
-
-
-// check if append < chunk size
-  if (message.PayloadSize < 10000){
-
-  }
-
-
-    // if file exist, increment chunkId by 1
-    array := metaData.file_id_to_chunkId[message.Filename]
-    current_chunkId := metaData.file_id_to_chunkId[message.Filename][len(array)-1]
-    c_index := strings.Index(current_chunkId, "c")
-    chunkId := current_chunkId[c_index+1:]
-
-    //increment by 1
-    int_chunkId, err := strconv.Atoi(chunkId) 
-    if err != nil {
-      log.Fatalln(err)
-    }
-
-    int_chunkId++
-    string_chunkId := string(int_chunkId)
-    metaData.file_id_to_chunkId[message.Filename] = append(metaData.file_id_to_chunkId[message.Filename], message.Filename + "_c" + string_chunkId)
-  }
-}
-  // check if chunkserver is full
-  array := metaData.file_id_to_chunkId[message.Filename]
-  last_chunk = metaData.file_id_to_chunkId[message.Filename][len(array)-1]
-
-
-
-  dest_chunkserver := []int{8001, 8002, 8003}
-  return_message := structs.CreateMessage(helper.DATA_APPEND, 8000, dest_chunkserver[0], dest_chunkserver[1:], message.Filename, last_chunk, "DATA", 4, 0, 8000, dest_chunkserver)
-  data, err = json.Marshal(return_message)
-
-  }
-
-
-
-    if err != nil {
-      log.Fatalln(err)
-    }
-
-  // Send the message back
-    _, err = conn.Write(data)
-    if err != nil {
-      log.Fatalln(err)
-    }
-    fmt.Print("Message sent: ", string(data))
-    }
-  }
 
 func main(){
 
