@@ -19,9 +19,10 @@ import (
 	
 )
 
-// Connect client to master 
+// Connect client to master [Done]
 func callMasterAppend(filename string) {
 	var numChunks uint64
+	//var masterData []byte
 	// debug to check whats the main directory, just leave it here
 	path, err := os.Getwd()
 	if err != nil {
@@ -42,7 +43,7 @@ func callMasterAppend(filename string) {
 	// If no split, just append as normal
 	// Otherwise append for each file split
 	if numChunks == 1{
-		callAppend(filename, fileByteSize)
+		callAppendMaster(filename, fileByteSize)
 	} else{
 		filePrefix := removeExtension(filename)
 		for i := uint64(0); i < numChunks; i++{
@@ -50,8 +51,9 @@ func callMasterAppend(filename string) {
 			smallFileSize := getFileSize(smallFile)
 			fmt.Println(smallFile) // debug
 			fmt.Println(smallFileSize) // debug
+			callAppendMaster(smallFile,smallFileSize)
+			//fmt.Printf("Response from Master: %s ", string(masterData))
 
-			//callAppend(smallFile,smallFileSize)
 		}
 	}
 }
@@ -135,8 +137,8 @@ func removeExtension(fpath string) string {
 	return strings.TrimSuffix(fpath, ext)
 }
 
-
-func callAppend(filename string, fileByteSize int64){
+// Send API request to master for append [Need to test]
+func callAppendMaster(filename string, fileByteSize int64)[]byte{
 	// Create append message json
 	msgJson := &structs.Message{
 		MessageType: helper.DATA_APPEND,
@@ -160,21 +162,23 @@ func callAppend(filename string, fileByteSize int64){
 	responseBody := bytes.NewBuffer(post)
 
 	// Master port number = 8080
-	resp, err := http.Post("https://localhost:8080/client/append", "application/json", responseBody)
+	resp, err := http.Post("http://localhost:8080/client/append", "application/json", responseBody)
 	
-	//Handle Error
+	// Handle Error
 	if err != nil {
 		log.Fatalf("An Error Occured %v", err)
 	}
 	defer resp.Body.Close()
 	
-	//Read the response body
+	// Read the response body
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalln(err)
 	}
+	// Print body
 	sb := string(body)
 	log.Printf(sb)
+	return body
 
 }
 
