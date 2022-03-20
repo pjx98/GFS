@@ -1,12 +1,11 @@
 package main
 
 import (
-  "encoding/json"
   "fmt"
   client "gfs.com/master/client"
   helper "gfs.com/master/helper"
   structs "gfs.com/master/structs"
-  chunk "gfs.com/master/chunk"
+  chunk "gfs.com/master/ChunkServer"
   "log"
   //"net"
   "github.com/gin-gonic/gin"
@@ -14,7 +13,6 @@ import (
   "strings"
   "strconv"
   "math/rand"
-  "bytes"
   "reflect"
   "sync/atomic"
 
@@ -116,8 +114,8 @@ func postMessageHandler(context *gin.Context) {
       array := metaData.file_id_to_chunkId[message.Filename]
       last_chunk = metaData.file_id_to_chunkId[message.Filename][len(array)-1]
 
-      current_offset := metaData.file_id_to_chunkId_offset[message.Filename][last_chunk]
-      remaining_space := 10000 - current_offset
+      current_offset := *metaData.file_id_to_chunkId_offset[message.Filename][last_chunk]
+      remaining_space := 10000 - int64(current_offset)
 
       // check if append data < chunk size
       if message.PayloadSize < remaining_space{
@@ -128,11 +126,11 @@ func postMessageHandler(context *gin.Context) {
         // append == chunksize
         sendClientChunkServers(message, last_chunk)
 
-        createNewChunk(message, chunkServerArray)
+        createNewChunk(message)
 
       }else{
         // append > chunksize
-        appendGreaterThanChunk(message, chunkServerArray)
+        appendGreaterThanChunk(message)
       }
     }
   }
@@ -161,19 +159,19 @@ func create_new_chunkId(message structs.Message) string{
 
 
 // ask chunkservers to create new chunks
-func createNewChunk(message structs.Message, chunkServerArray map[int]bool){
-  new_chunkServers := choose_3_random_chunkServers(chunkServerArray)
+func createNewChunk(message structs.Message){
+  new_chunkServers := choose_3_random_chunkServers()
   chunkId := create_new_chunkId(message)
   // ask the 3 chunkserver to create chunks
 
   for i := 0; i < 3; i++ {
     chunkServer := new_chunkServers[i]
-    helper.SendMessage(chunkServer, "CREATE_NEW_CHUNK", helper.MASTER_SERVER_PORT, chunkServer, []int{chunkServer}, message.Filename, chunkId, "",
+    helper.SendMessage(chunkServer, helper.CREATE_NEW_CHUNK, helper.MASTER_SERVER_PORT, chunkServer, []int{chunkServer}, message.Filename, chunkId, "",
       0, 0, helper.MASTER_SERVER_PORT, []int{chunkServer})
   }
  
   // set new chunk offset to 0
-  metaData.file_id_to_chunkId_offset[message.Filename][chunkId] = 0
+  *metaData.file_id_to_chunkId_offset[message.Filename][chunkId] = 0
 
 }
 
@@ -194,6 +192,8 @@ func newFileAppend(message structs.Message){
 
 // send client chunkservers 
 func sendClientChunkServers(message structs.Message, lastChunk string){
+  // atomic.AddInt64(metaData.file_id_to_chunkId_offset[message.Filename][lastChunk], int64(message.PayloadSize))
+  // currentChunkOffset := 
 
   helper.SendMessage(metaData.chunkId_to_chunkserver[lastChunk][0], helper.DATA_APPEND, message.ClientPort, metaData.chunkId_to_chunkserver[lastChunk][0], metaData.chunkId_to_chunkserver[lastChunk][1:], message.Filename, lastChunk, "",
       0, 0, helper.MASTER_SERVER_PORT, metaData.chunkId_to_chunkserver[lastChunk])
@@ -201,9 +201,7 @@ func sendClientChunkServers(message structs.Message, lastChunk string){
   fmt.Printf("Master replying Client with locations of filename %v", message.Filename)
 
   // increment offset
-  metaData.file_id_to_chunkId_offset[message.Filename][lastChunk] += message.PayloadSize
-
-  atomic.
+  atomic.AddInt64(metaData.file_id_to_chunkId_offset[message.Filename][lastChunk], int64(message.PayloadSize))
 
 }
 
@@ -212,7 +210,7 @@ increase current last chunk offset to 10KB
 send message to old Chunkserver to ask them to pad chunk to 10KB
 Send message to 3 random chunkserver to ask them to create new chunks for next append
 */
-func appendGreaterThanChunk(message structs.Message, chunkServerArray map[int]bool ){
+func appendGreaterThanChunk(message structs.Message){
 
   // get last chunk
   array := metaData.file_id_to_chunkId[message.Filename]
@@ -222,13 +220,13 @@ func appendGreaterThanChunk(message structs.Message, chunkServerArray map[int]bo
 
   // old chunkId
   // increase offset to 10KB
-  metaData.file_id_to_chunkId_offset[message.Filename][last_chunk] = 10000
+  *metaData.file_id_to_chunkId_offset[message.Filename][last_chunk] = 10000
 
   // tell old CS to pad chunk
   old_chunkServers := metaData.chunkId_to_chunkserver[last_chunk]
   for i := 0; i < 3; i++ {
     chunkServer := old_chunkServers[i]
-    helper.SendMessage(chunkServer, "DATA_PAD", helper.MASTER_SERVER_PORT, chunkServer, []int{chunkServer}, message.Filename, last_chunk, "",
+    helper.SendMessage(chunkServer, helper.DATA_PAD, helper.MASTER_SERVER_PORT, chunkServer, []int{chunkServer}, message.Filename, last_chunk, "",
       0, 0, helper.MASTER_SERVER_PORT, []int{chunkServer})
     fmt.Printf("Master asking ChunkServer %v to pad old chunk for %v", chunkServer, last_chunk)
   }
@@ -237,15 +235,16 @@ func appendGreaterThanChunk(message structs.Message, chunkServerArray map[int]bo
   new_chunkId := create_new_chunkId(message)
 
   // choose 3 chunkserver to create chunks
-  new_chunkServer := choose_3_random_chunkServers(chunkServerArray)
+  new_chunkServer := choose_3_random_chunkServers()
 
   // ask 3 CS to create new chunk
   for i := 0; i < 3; i++ {
     chunkServer := new_chunkServer[i]
-    helper.SendMessage(chunkServer, "CREATE_NEW_CHUNK", helper.MASTER_SERVER_PORT, chunkServer, []int{chunkServer}, message.Filename, new_chunkId, "",
+    helper.SendMessage(chunkServer, helper.CREATE_NEW_CHUNK, helper.MASTER_SERVER_PORT, chunkServer, []int{chunkServer}, message.Filename, new_chunkId, "",
     0, 0, helper.MASTER_SERVER_PORT, []int{chunkServer})
     fmt.Printf("Master asking ChunkServer %v to create new chunk for %v", new_chunkServer[i], message.Filename)
   }
+
   
 
 }
@@ -259,7 +258,7 @@ func main(){
 
   metaData.file_id_to_chunkId = make(map[string][]string)
   metaData.chunkId_to_chunkserver = make(map[string][]int)
-  metaData.file_id_to_chunkId_offset = make(map[string]map[string]int64)
+  metaData.file_id_to_chunkId_offset = make(map[string]map[string]*int64)
 
 
   go listen(0, 8080)
