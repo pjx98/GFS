@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
+	//"net"
 	"strconv"
 	"path/filepath"
 	"math"
@@ -22,7 +22,7 @@ import (
 // Connect client to master [Done]
 func callMasterAppend(filename string) {
 	var numChunks uint64
-	//var masterData []byte
+	var masterData []byte
 	// debug to check whats the main directory, just leave it here
 	path, err := os.Getwd()
 	if err != nil {
@@ -43,17 +43,18 @@ func callMasterAppend(filename string) {
 	// If no split, just append as normal
 	// Otherwise append for each file split
 	if numChunks == 1{
-		callAppendMaster(filename, fileByteSize)
+		masterData = callAppendMaster(filename, fileByteSize)
+		connectChunks(masterData)
 	} else{
 		filePrefix := removeExtension(filename)
 		for i := uint64(0); i < numChunks; i++{
 			smallFile := filePrefix + strconv.FormatUint(i, 10) + ".txt"
 			smallFileSize := getFileSize(smallFile)
-			fmt.Println(smallFile) // debug
-			fmt.Println(smallFileSize) // debug
-			callAppendMaster(smallFile,smallFileSize)
-			//fmt.Printf("Response from Master: %s ", string(masterData))
-
+			// fmt.Println(smallFile) // debug
+			// fmt.Println(smallFileSize) // debug
+			masterData = callAppendMaster(smallFile,smallFileSize)
+			connectChunks(masterData)
+			//fmt.Printf("Response from Master: %s ", string(masterData)) // debug
 		}
 	}
 }
@@ -137,7 +138,7 @@ func removeExtension(fpath string) string {
 	return strings.TrimSuffix(fpath, ext)
 }
 
-// Send API request to master for append [Need to test]
+// Send API request to master for append [Done]
 func callAppendMaster(filename string, fileByteSize int64)[]byte{
 	// Create append message json
 	msgJson := &structs.Message{
@@ -158,7 +159,7 @@ func callAppendMaster(filename string, fileByteSize int64)[]byte{
 	}
 
 	post, _ := json.Marshal(msgJson)
-	fmt.Println(string(post)) // debug
+	//fmt.Println(string(post)) // debug
 	responseBody := bytes.NewBuffer(post)
 
 	// Master port number = 8080
@@ -176,35 +177,66 @@ func callAppendMaster(filename string, fileByteSize int64)[]byte{
 		log.Fatalln(err)
 	}
 	// Print body
-	sb := string(body)
-	log.Printf(sb)
+	//sb := string(body)
+	//log.Printf(sb)
 	return body
 
 }
 
 // Connect client to chunk servers [TO-DO]
-func connectChunks(message structs.Message) {
+func connectChunks(masterData []byte) {
+	var message structs.Message
 
-	for _, s := range message.TargetPorts {
-		address := "localhost:" + strconv.Itoa(s)
-		_, err := net.Dial("tcp", address)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		fmt.Printf("Connected to chunk server: %d\n", s)
+	json.Unmarshal(masterData, &message)
+	// Add relevant info into the message	
+	message.SourcePort = message.ClientPort
+
+	// Read the file
+	rel, err := filepath.Rel("GFS/Master", "GFS/Client/" + message.Filename)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
+	text, err := ioutil.ReadFile(rel)
+    if err != nil {
+        fmt.Print(err)
+		os.Exit(1)
+    }
+    //fmt.Println(string(text)) // debug
 
-	// should only be able to get here if all connected
-	sendPrimaryChunk(message.TargetPorts, "placeholder", message.ChunkId)
+	message.Payload = string(text)
+
+	fmt.Println(message) // debug, just check the final message
+
+	// Send to the primary chunk
+	chunkReply := sendPrimaryChunk(message)
+	fmt.Println(chunkReply)
 }
 
-
-// parameters: Chunkserver ports, data to send, chunk_id (Append_last_chunk)
 // Sends data to primary chunk [TO-DO]
-func sendPrimaryChunk(ports []int, data string, chunkID string){
-
-	fmt.Println("here") // debug
+func sendPrimaryChunk(message structs.Message)[]byte{
 	
+	// Which chunkserver to contact
+	primary := message.PrimaryChunkServer
+	post, _ := json.Marshal(message)
+	//fmt.Println(string(post)) // debug
+	responseBody := bytes.NewBuffer(post)
+
+	url := "http://localhost:" + strconv.Itoa(primary) + "/message"
+	resp, err := http.Post(url, "application/json", responseBody)
+	
+	// Handle Error
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	defer resp.Body.Close()
+	
+	// Read the response body
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return body
 }
 
 // Receive first ACK (data_received) from primary chunk server [TO-DO]
@@ -213,7 +245,7 @@ func checkFirstACK() {
 }
 
 // Send write data signal to primary chunk server [TO-DO]
-func sendWriteData() {
+func sendCommietData() {
 
 }
  
