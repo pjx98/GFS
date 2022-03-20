@@ -36,7 +36,10 @@ type MetaData struct {
 
 }
 
-var metaData MetaData
+var (
+  metaData MetaData
+  ACKMap  map[string]map[int]map[string]*int32
+)
 
 
 func choose_3_random_chunkServers() []int {
@@ -100,40 +103,54 @@ func postMessageHandler(context *gin.Context) {
 
   fmt.Printf("Master connected to Client\n")
   last_chunk := ""
+  fmt.Println("hello?")
+  switch message.MessageType {
+    case helper.DATA_APPEND:
+      _, ok := metaData.file_id_to_chunkId[message.Filename]
 
-  if _, ok := metaData.file_id_to_chunkId[message.Filename]; ok {
+      // if file does not exist in metaData, create a new entry
+      if ok == false {
+        fmt.Println("ok is false")
 
-    // if file does not exist in metaData, create a new entry
-    if ok == false {
+        newFileAppend(message) 
 
-      newFileAppend(message) 
+      } else {
+        // if file exist
+        // get last chunk 
+        fmt.Println("ok is true")
 
-    } else {
-      // if file exist
-      // get last chunk 
-      array := metaData.file_id_to_chunkId[message.Filename]
-      last_chunk = metaData.file_id_to_chunkId[message.Filename][len(array)-1]
+        array := metaData.file_id_to_chunkId[message.Filename]
+        last_chunk = metaData.file_id_to_chunkId[message.Filename][len(array)-1]
+        fmt.Println(metaData.file_id_to_chunkId_offset[message.Filename][last_chunk])
+        current_offset := *metaData.file_id_to_chunkId_offset[message.Filename][last_chunk]
+        remaining_space := 10000 - int64(current_offset)
 
-      current_offset := *metaData.file_id_to_chunkId_offset[message.Filename][last_chunk]
-      remaining_space := 10000 - int64(current_offset)
+        // check if append data < chunk size
+        if message.PayloadSize < remaining_space{
 
-      // check if append data < chunk size
-      if message.PayloadSize < remaining_space{
+          go sendClientChunkServers(message, last_chunk)
 
-        sendClientChunkServers(message, last_chunk)
+        }else if message.PayloadSize == remaining_space{
+          // append == chunksize
+          go sendClientChunkServers(message, last_chunk)
 
-      }else if message.PayloadSize == remaining_space{
-        // append == chunksize
-        sendClientChunkServers(message, last_chunk)
+          go createNewChunk(message)
 
-        createNewChunk(message)
-
-      }else{
-        // append > chunksize
-        appendGreaterThanChunk(message)
+        }else{
+          // append > chunksize
+          go appendGreaterThanChunk(message)
+        }
       }
-    }
+    case helper.ACK_CHUNK_CREATE:
+      go ackChunkCreateHandler(message)
   }
+
+}
+
+func ackChunkCreateHandler(message structs.Message) {
+  atomic.AddInt32(ACKMap[message.ChunkId][message.ClientPort][message.MessageType], int32(2))
+  waitForACKs(message.ChunkId, message.ClientPort, message.MessageType)
+  helper.SendMessage(message.ClientPort, helper.DATA_APPEND, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, helper.MASTER_SERVER_PORT, []int{message.ClientPort}) // ACK to Client.
 }
 
 func create_new_chunkId(message structs.Message) string{
@@ -171,7 +188,8 @@ func createNewChunk(message structs.Message){
   }
  
   // set new chunk offset to 0
-  *metaData.file_id_to_chunkId_offset[message.Filename][chunkId] = 0
+  //*metaData.file_id_to_chunkId_offset[message.Filename][chunkId] = 0
+  atomic.StoreInt64(metaData.file_id_to_chunkId_offset[message.Filename][chunkId],0)
 
 }
 
@@ -185,7 +203,7 @@ func newFileAppend(message structs.Message){
   new_chunkServer := choose_3_random_chunkServers()
   for i := 0; i < 3; i++ {
     chunkServer := new_chunkServer[i]
-    helper.SendMessage(chunkServer, helper.CREATE_NEW_CHUNK, helper.MASTER_SERVER_PORT, chunkServer, []int{chunkServer}, message.Filename, chunkId, "",
+    helper.SendMessage(chunkServer, helper.CREATE_NEW_CHUNK, message.ClientPort, new_chunkServer[0], new_chunkServer[1:], message.Filename, chunkId, "",
       0, 0, helper.MASTER_SERVER_PORT, []int{chunkServer})
   }
 }
@@ -243,10 +261,15 @@ func appendGreaterThanChunk(message structs.Message){
     helper.SendMessage(chunkServer, helper.CREATE_NEW_CHUNK, helper.MASTER_SERVER_PORT, chunkServer, []int{chunkServer}, message.Filename, new_chunkId, "",
     0, 0, helper.MASTER_SERVER_PORT, []int{chunkServer})
     fmt.Printf("Master asking ChunkServer %v to create new chunk for %v", new_chunkServer[i], message.Filename)
-  }
+  } 
+}
 
-  
-
+func waitForACKs(chunkId string, clientPort int, messageType string) {
+	for {
+		if (*ACKMap[chunkId][clientPort][messageType]) == 0 {
+			break
+		}
+	}
 }
 
  
@@ -261,11 +284,13 @@ func main(){
   metaData.file_id_to_chunkId_offset = make(map[string]map[string]*int64)
 
 
-  go listen(0, 8080)
+  go listen(1, 8080)
   chunk.ChunkServer(2,8081)
   chunk.ChunkServer(3,8082)
   chunk.ChunkServer(4,8083)
-  client.StartClient(7, 8086)
+  chunk.ChunkServer(5,8084)
+  chunk.ChunkServer(6,8085)
+  //client.StartClient(7, 8086)
   // // listening to client on port 8000
   // listenToClient(1, "8000", metaData)
   // client.StartClient()

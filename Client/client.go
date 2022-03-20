@@ -38,11 +38,15 @@ func messageHandler(context *gin.Context){
 	}
 	context.IndentedJSON(http.StatusOK, message.MessageType+" ACK message from Node "+strconv.Itoa(message.SourcePort)+" was received by Client "+strconv.Itoa(message.ClientPort))
 	
+	fmt.Println("hello pls print")
+	fmt.Println(message)
+
+
 	switch message.MessageType {
 	case helper.DATA_APPEND:
-		connectChunks(message)
+		go connectChunks(message)
 	case helper.ACK_APPEND:
-		sendCommitData(message)
+		go sendCommitData(message)
 	case helper.ACK_COMMIT:
 		fmt.Println("Append successfully finished")
 	}
@@ -97,6 +101,10 @@ func connectChunks(message structs.Message){
 	// Add relevant info into the message
 	message.SourcePort = message.ClientPort
 	primary := message.PrimaryChunkServer
+	secondary := message.SecondaryChunkServers
+	var targetPorts []int
+	targetPorts = append(targetPorts, []int{primary}...)
+	targetPorts = append(targetPorts, secondary...)
 
 	// Read the file
 	rel, err := filepath.Rel("GFS/Master", "GFS/Client/" + message.Filename)
@@ -111,7 +119,7 @@ func connectChunks(message structs.Message){
     }
 	message.Payload = string(text)
 	fmt.Println(message) // debug, just check the final message
-	helper.SendMessageV2(primary, message, message.ClientPort, message.TargetPorts)
+	helper.SendMessageV2(primary, message, message.ClientPort, targetPorts )
 }
 
 // Send write data signal to primary chunk server [Done]

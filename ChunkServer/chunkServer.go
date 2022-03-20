@@ -46,19 +46,19 @@ func postMessageHandler(context *gin.Context) {
 
 	switch message.MessageType {
 	case helper.DATA_APPEND:
-		appendMessageHandler(message)
+		go appendMessageHandler(message)
 	case helper.ACK_APPEND:
-		appendACKHandler(message)
+		go appendACKHandler(message)
 	case helper.DATA_COMMIT:
-		commitDataHandler(message)
+		go commitDataHandler(message)
 	case helper.ACK_COMMIT:
-		commitACKHandler(message)
+		go commitACKHandler(message)
 	case helper.CREATE_NEW_CHUNK:
-		createNewChunkHandler(message)
+		go createNewChunkHandler(message)
 	case helper.DATA_PAD:
-		padHandler(message)
+		go padHandler(message)
 	case helper.ACK_PAD:
-		padACKHandler(message)
+		go padACKHandler(message)
 	}
 }
 
