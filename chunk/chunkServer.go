@@ -1,7 +1,11 @@
 package chunk
 
 // TODO: Look through and decide which part of the code will be run as a seperate go routine.
-
+// TODO: ACKmap atomic add
+// TODO: When to pad and how to know to Pad.
+// TODO: Fault tolerance, handle cases when secondary fails. How to retry?
+// TODO: Return correct offset to client
+// TODO: Create chunk function
 import (
 	"fmt"
 	"net/http"
@@ -68,11 +72,12 @@ func listen(nodePid int, portNo int) {
 func appendMessageHandler(message structs.Message) {
 	storeTempData(message.ChunkId, message.ClientPort, message.Payload)
 	if len(message.TargetPorts) > 1 { // Only for the Primary Chunk Server.
+		(*ACKMap)[message.ChunkId][message.ClientPort] += len(message.TargetPorts) - 1
 		for index, targetPort := range message.TargetPorts[1:] {
 			helper.SendMessageV2(targetPort, message, message.TargetPorts[0], []int{message.TargetPorts[index]}) // The TargetPorts attribute of the Message object is set to just one element.
 			// This is so that this for loop is only trigerred in the Primary Chunk Server and not the Secondary Chunk Servers.
 		}
-		waitForACKs(len(message.TargetPorts), message.ChunkId, message.ClientPort)
+		waitForACKs(message.ChunkId, message.ClientPort)
 		helper.SendMessage(message.ClientPort, helper.ACK_APPEND, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.PrimaryChunkServer, []int{message.ClientPort}) // ACK to Client.
 	} else { // Only for the Secondary Chunk Servers.
 		helper.SendMessage(message.PrimaryChunkServer, helper.ACK_APPEND, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.TargetPorts[0], []int{message.PrimaryChunkServer})
@@ -91,11 +96,12 @@ func commitDataHandler(message structs.Message) {
 	lockChunk(message.ChunkId)
 	writeMutations(message.ChunkId, message.ClientPort, message.ChunkOffset)
 	if len(message.TargetPorts) > 1 { // Only for the Primary Chunk Server.
+		(*ACKMap)[message.ChunkId][message.ClientPort] += len(message.TargetPorts) - 1
 		for index, targetPort := range message.TargetPorts[1:] {
 			helper.SendMessageV2(targetPort, message, message.TargetPorts[0], []int{message.TargetPorts[index]}) // The TargetPorts attribute of the Message object is set to just one element.
 			// This is so that this for loop is only trigerred in the Primary Chunk Server and not the Secondary Chunk Servers.
 		}
-		waitForACKs(len(message.TargetPorts), message.ChunkId, message.ClientPort)
+		waitForACKs(message.ChunkId, message.ClientPort)
 		helper.SendMessage(message.ClientPort, helper.ACK_COMMIT, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.PrimaryChunkServer, []int{message.ClientPort}) // ACK to Client.
 	} else { // Only for the Secondary Chunk Servers.
 		helper.SendMessage(message.PrimaryChunkServer, helper.ACK_COMMIT, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, message.TargetPorts[0], []int{message.PrimaryChunkServer})
@@ -108,13 +114,13 @@ func sendACK() {} //TODO: Need to see if we need this fucntion since sending ACK
 func writeMutations(chunkId string, clientPort int, chunkOffset int64) {
 	fh, err := os.OpenFile(chunkId+".txt", os.O_RDWR, 0644)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 	defer fh.Close()
 	writeData, _ := (*chunkIdAppendDataMap)[chunkId][clientPort].Peek()
 	writeDataBytes := []byte(writeData)
 	if _, err := fh.WriteAt(writeDataBytes, chunkOffset); err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 }
 
@@ -122,8 +128,7 @@ func replicate() {} //TODO: No longer required ?
 
 func sendData() {} //TODO: No longer required ?
 
-func waitForACKs(noOfACKs int, chunkId string, clientPort int) {
-	(*ACKMap)[chunkId][clientPort] += 2
+func waitForACKs(chunkId string, clientPort int) {
 	for {
 		if (*ACKMap)[chunkId][clientPort] == 0 {
 			break
