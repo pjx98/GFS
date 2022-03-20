@@ -20,7 +20,6 @@ const (
 	ACK_PAD = "ACK_PAD" // master waiting for ACK PAD
 
 	CREATE_NEW_CHUNK = "CREATE_NEW_CHUNK" // ask the master to create a new chunk
-	PAD_NEW_CHUNK = "PAD_NEW_CHUNK" // ask chunk server to pad chunk to 10KB
 )
 
 var (
