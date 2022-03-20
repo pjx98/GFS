@@ -20,7 +20,7 @@ func SendMessage(portNo int, messageType string, clientPort int, PCS int, SCS []
 
 func SendMessageV2(portNo int, message structs.Message, sourcePort int, targetPorts []int) { // V2 takes in a Message object directly.
 	message.SourcePort, message.TargetPorts = sourcePort, targetPorts // Used to reset the TargetPorts attribute of the Message struct.
-	request_url := BASE_URL + strconv.Itoa(portNo) + "/message"
+	request_url := BASE_URL + ":" + strconv.Itoa(portNo) + "/message"
 	messageJSON, _ := json.Marshal(message)
 	response, err := http.Post(request_url, "application/json", bytes.NewBuffer(messageJSON))
 
