@@ -12,12 +12,15 @@ const (
 	// Message Types
 	DATA_APPEND = "DATA_APPEND" // send chunk data to append
 	DATA_COMMIT = "DATA_COMMIT" // tell chunk to write
+	DATA_PAD = "DATA_PAD"  // ask chunk server to pad chunk to 10KB
 
 	ACK_APPEND       = "ACK_APPEND"       // chunk server ACK that data to be appened has been received
 	ACK_COMMIT       = "ACK_COMMIT"       // chunk server ACK that data has been committed
 	ACK_CHUNK_CREATE = "ACK_CHUNK_CREATE" // chunk server ACK that new chunk has been created
+	ACK_PAD = "ACK_PAD" // master waiting for ACK PAD
 
 	CREATE_NEW_CHUNK = "CREATE_NEW_CHUNK" // ask the master to create a new chunk
+	PAD_NEW_CHUNK = "PAD_NEW_CHUNK" // ask chunk server to pad chunk to 10KB
 )
 
 var (
