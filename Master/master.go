@@ -23,8 +23,9 @@ type MetaData struct {
 
   // map each chunkserver to the amount of storage it has
   // max chunk is 10 KB
-  // max chunk sent is 2.5KB
-  chunkserver_to_storage map[int]float32
+  // max append data is 2.5KB
+  // {f1 : {c0 : 0KB, c1 : 2KB} }
+  file_id_to_chunkId_offset map[string]map[string]float32
 
 
 }
@@ -75,41 +76,54 @@ func listenClient(conn net.Conn, metaData MetaData) {
 
     last_chunk := ""
 
-    if _, ok := metaData.file_id_to_chunkId[message.Filename]; ok {
-      // if file does not exist in metaData, create a new entry and named it fn.c0
-      if ok == false {
-        metaData.file_id_to_chunkId[message.Filename] = []string{message.Filename + "_c0"}
-      } else {
-        // if file exist, increment chunkId by 1
-        array := metaData.file_id_to_chunkId[message.Filename]
-        current_chunkId := metaData.file_id_to_chunkId[message.Filename][len(array)-1]
-        c_index := strings.Index(current_chunkId, "c")
-        chunkId := current_chunkId[c_index+1:]
+    // check message Type
+    // if message is createAck
+    if (message.MessageType == "createAck"){
+      //do something
+    } else{
+    // if message type is an append request from client
 
-        //increment by 1
-        int_chunkId, err := strconv.Atoi(chunkId) 
-        if err != nil {
-          log.Fatalln(err)
+      if _, ok := metaData.file_id_to_chunkId[message.Filename]; ok {
+        // if file does not exist in metaData, create a new entry and named it fn.c0
+        if ok == false {
+          metaData.file_id_to_chunkId[message.Filename] = []string{message.Filename + "_c0"}
+        } else {
+
+          // check if append < chunk size
+          if (message.PayloadSize < )
+
+
+
+
+
+          // if file exist, increment chunkId by 1
+          array := metaData.file_id_to_chunkId[message.Filename]
+          current_chunkId := metaData.file_id_to_chunkId[message.Filename][len(array)-1]
+          c_index := strings.Index(current_chunkId, "c")
+          chunkId := current_chunkId[c_index+1:]
+  
+          //increment by 1
+          int_chunkId, err := strconv.Atoi(chunkId) 
+          if err != nil {
+            log.Fatalln(err)
+          }
+  
+          int_chunkId++
+          string_chunkId := string(int_chunkId)
+          metaData.file_id_to_chunkId[message.Filename] = append(metaData.file_id_to_chunkId[message.Filename], message.Filename + "_c" + string_chunkId)
         }
-
-        int_chunkId++
-        string_chunkId := string(int_chunkId)
-        metaData.file_id_to_chunkId[message.Filename] = append(metaData.file_id_to_chunkId[message.Filename], message.Filename + "_c" + string_chunkId)
-
-
-
-
-
       }
+      // check if chunkserver is full
+      array := metaData.file_id_to_chunkId[message.Filename]
+      last_chunk = metaData.file_id_to_chunkId[message.Filename][len(array)-1]
+  
+      
+  
+      dest_chunkserver := []int{8001, 8002, 8003}
+      return_message := structs.CreateMessage(helper.DATA_APPEND, 8000, dest_chunkserver[0], dest_chunkserver[1:], message.Filename, last_chunk, "DATA", 4, 0, 8000, dest_chunkserver)
+
     }
-    // check if chunkserver is full
-    array := metaData.file_id_to_chunkId[message.Filename]
-    last_chunk = metaData.file_id_to_chunkId[message.Filename][len(array)-1]
 
-    
-
-    dest_chunkserver := []int{8001, 8002, 8003}
-    return_message := structs.CreateMessage(helper.DATA_APPEND, 8000, dest_chunkserver[0], dest_chunkserver[1:], message.Filename, last_chunk, "DATA", 4, 0, 8000, dest_chunkserver)
 
     data, err = json.Marshal(return_message)
 
