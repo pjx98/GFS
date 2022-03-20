@@ -2,7 +2,7 @@ package main
 
 import (
   "fmt"
-  client "gfs.com/master/client"
+  //client "gfs.com/master/client"
   helper "gfs.com/master/helper"
   structs "gfs.com/master/structs"
   chunk "gfs.com/master/ChunkServer"
@@ -101,7 +101,8 @@ func postMessageHandler(context *gin.Context) {
 
 
 
-  fmt.Printf("Master connected to Client\n")
+  fmt.Println("------------------- New MESSAGE - ", message.MessageType, "--------------------------")
+  fmt.Println(message.SourcePort, message.TargetPorts, message.MessageType)
   last_chunk := ""
   fmt.Println("hello?")
   switch message.MessageType {
@@ -148,9 +149,7 @@ func postMessageHandler(context *gin.Context) {
 }
 
 func ackChunkCreateHandler(message structs.Message) {
-  atomic.AddInt32(ACKMap[message.ChunkId][message.ClientPort][message.MessageType], int32(2))
-  waitForACKs(message.ChunkId, message.ClientPort, message.MessageType)
-  helper.SendMessage(message.ClientPort, helper.DATA_APPEND, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, helper.MASTER_SERVER_PORT, []int{message.ClientPort}) // ACK to Client.
+  atomic.AddInt32(ACKMap[message.ChunkId][message.ClientPort][message.MessageType], -1)
 }
 
 func create_new_chunkId(message structs.Message) string{
@@ -163,6 +162,7 @@ func create_new_chunkId(message structs.Message) string{
   //increment by 1
   int_chunkId, err := strconv.Atoi(chunkId) 
   if err != nil {
+    fmt.Println("ERROR 1")
     log.Fatalln(err)
   }
 
@@ -195,17 +195,25 @@ func createNewChunk(message structs.Message){
 
 // Client wants to append to a new file
 func newFileAppend(message structs.Message){
+  fmt.Println("NEW FILE APPEND IS CREATED")
   // create new entry in MetaData
   chunkId := message.Filename + "_c0"
   metaData.file_id_to_chunkId[message.Filename] = []string{chunkId}
 
   // ask 3 chunkserver to create chunks
   new_chunkServer := choose_3_random_chunkServers()
+  fmt.Println((ACKMap[message.ChunkId][message.ClientPort][message.MessageType]))
+  fmt.Println("CONFUCIOUS")
+  *(ACKMap[message.ChunkId][message.ClientPort][message.MessageType]) += 2
+  fmt.Println(*(ACKMap[message.ChunkId][message.ClientPort][message.MessageType]))
+  fmt.Println("PROBLEM ISNT HERE")
   for i := 0; i < 3; i++ {
     chunkServer := new_chunkServer[i]
     helper.SendMessage(chunkServer, helper.CREATE_NEW_CHUNK, message.ClientPort, new_chunkServer[0], new_chunkServer[1:], message.Filename, chunkId, "",
       0, 0, helper.MASTER_SERVER_PORT, []int{chunkServer})
   }
+  waitForACKs(message.ChunkId, message.ClientPort, message.MessageType)
+  helper.SendMessage(message.ClientPort, helper.DATA_APPEND, message.ClientPort, message.PrimaryChunkServer, message.SecondaryChunkServers, message.Filename, message.ChunkId, "", 0, 0, helper.MASTER_SERVER_PORT, []int{message.ClientPort}) // ACK to Client.
 }
 
 // send client chunkservers 
@@ -282,14 +290,17 @@ func main(){
   metaData.file_id_to_chunkId = make(map[string][]string)
   metaData.chunkId_to_chunkserver = make(map[string][]int)
   metaData.file_id_to_chunkId_offset = make(map[string]map[string]*int64)
+  ACKMap = make(map[string]map[int]map[string]*int32)
 
 
-  go listen(1, 8080)
-  chunk.ChunkServer(2,8081)
-  chunk.ChunkServer(3,8082)
-  chunk.ChunkServer(4,8083)
-  chunk.ChunkServer(5,8084)
-  chunk.ChunkServer(6,8085)
+
+  go chunk.ChunkServer(2,8081)
+  go chunk.ChunkServer(3,8082)
+  go chunk.ChunkServer(4,8083)
+  go chunk.ChunkServer(5,8084)
+  go chunk.ChunkServer(6,8085)
+  listen(1, 8080)
+
   //client.StartClient(7, 8086)
   // // listening to client on port 8000
   // listenToClient(1, "8000", metaData)

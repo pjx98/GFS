@@ -125,6 +125,7 @@ func createNewChunkHandler(message structs.Message) {
 func writeMutations(chunkId string, clientPort int, chunkOffset int64) {
 	fh, err := os.OpenFile(chunkId+".txt", os.O_RDWR, 0644)
 	if err != nil {
+		fmt.Println("ERROR 2")
 		fmt.Println(err)
 	}
 	defer fh.Close()
@@ -133,6 +134,7 @@ func writeMutations(chunkId string, clientPort int, chunkOffset int64) {
 	writeData, _ := (*chunkIdAppendDataMap)[chunkId][clientPort].Peek()
 	writeDataBytes := []byte(writeData)
 	if _, err := fh.WriteAt(writeDataBytes, chunkOffset); err != nil {
+		fmt.Println("ERROR 3")
 		fmt.Println(err)
 	}
 }
@@ -173,6 +175,9 @@ func createChunk(portNo int, chunkId string) {
 }
 
 func ChunkServer(nodePid int, portNo int) {
+	//chunkIdAppendDataMap = make(*map[string]map[int]structs.Queue) // A map where the chunkId is the key and the value is another map whose keys are the portNo that made the append request and the values are queues whose elemnts are the data that is to be appended.
+	ACKMap = make(map[string]map[int]map[string]*int32)
+	//chunkLocks  = make(*map[string]bool) // Default value is false.
 	go listen(nodePid, portNo)
 }
 
@@ -197,12 +202,14 @@ func padHandler(message structs.Message) {
 func padFile(chunkId string, chunkOffset int64) {
 	fh, err := os.OpenFile(chunkId+".txt", os.O_RDWR, 0644)
 	if err != nil {
+		fmt.Println("ERROR 4")
 		fmt.Println(err)
 	}
 	defer fh.Close()
 	// pad chunk until full
 	padDataBytes := []byte(strings.Repeat("~", 10000-int(chunkOffset)))
 	if _, err := fh.WriteAt(padDataBytes, chunkOffset); err != nil {
+		fmt.Println("ERROR 5")
 		fmt.Println(err)
 	}
 }

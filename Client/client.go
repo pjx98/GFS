@@ -1,4 +1,4 @@
-package client
+package main
 
 import (
 	"os"
@@ -78,7 +78,7 @@ func callMasterAppend(pid int, portNo int, filename string) {
 	if numChunks == 1{
 		// send to master
 		fmt.Println("Sending append request to Master")
-		helper.SendMessage(8080, helper.DATA_APPEND, portNo, 0, nil, filename, "", "", fileByteSize, 0, portNo, nil)
+		helper.SendMessage(8080, helper.DATA_APPEND, portNo, 0, nil, filename, "", "", fileByteSize, 0, portNo, []int{helper.MASTER_SERVER_PORT})
 	} else{
 		filePrefix := removeExtension(filename)
 		for i := uint64(0); i < numChunks; i++{
@@ -89,7 +89,7 @@ func callMasterAppend(pid int, portNo int, filename string) {
 
 			// send to master
 			fmt.Println("Sending append request to Master")
-			helper.SendMessage(8080, helper.DATA_APPEND, portNo, 0, nil, smallFile, "", "", smallFileSize, 0, portNo, nil)
+			helper.SendMessage(8080, helper.DATA_APPEND, portNo, 0, nil, smallFile, "", "", smallFileSize, 0, portNo, []int{helper.MASTER_SERVER_PORT})
 		}
 	}
 }
@@ -217,6 +217,9 @@ func StartClient(pid int, portNo int) {
 	callMasterAppend(pid, portNo, "test.txt")
 }
 
+func main(){
+	StartClient(7,8086)
+}
 // func main(){
 // 	getFileSize("../test.txt")
 // }
