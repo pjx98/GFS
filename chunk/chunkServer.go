@@ -7,14 +7,14 @@ package chunk
 // TODO: Create chunk function
 import (
 	"fmt"
-	"net/http"
-	"os"
-	"strconv"
-	"sync/atomic"
-
 	helper "gfs.com/master/helper"
 	structs "gfs.com/master/structs"
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync/atomic"
 )
 
 var (
@@ -51,6 +51,8 @@ func postMessageHandler(context *gin.Context) {
 		commitDataHandler(message)
 	case helper.ACK_COMMIT:
 		commitACKHandler(message)
+	case helper.CREATE_NEW_CHUNK:
+		createNewChunkHandler(message)
 	}
 }
 
@@ -109,7 +111,9 @@ func commitDataHandler(message structs.Message) {
 	releaseChunk(message.ChunkId)
 }
 
-func sendACK() {} //TODO: Need to see if we need this fucntion since sending ACKs will be specific to the type of fucntion being performed.
+func createNewChunkHandler(message structs.Message) {
+	createChunk(message.TargetPorts[0], message.ChunkId)
+}
 
 func writeMutations(chunkId string, clientPort int, chunkOffset int64) {
 	fh, err := os.OpenFile(chunkId+".txt", os.O_RDWR, 0644)
@@ -123,10 +127,6 @@ func writeMutations(chunkId string, clientPort int, chunkOffset int64) {
 		fmt.Println(err)
 	}
 }
-
-func replicate() {} //TODO: No longer required ?
-
-func sendData() {} //TODO: No longer required ?
 
 func waitForACKs(chunkId string, clientPort int) {
 	for {
@@ -150,6 +150,16 @@ func lockChunk(chunkId string) {
 
 func releaseChunk(chunkId string) {
 	(*chunkLocks)[chunkId] = false
+}
+
+func createChunk(portNo int, chunkId string) {
+	pwd, _ := os.Getwd()
+	dataDirPath := filepath.Join(pwd, "../"+helper.DATA_DIR)
+	helper.CreateFolder(dataDirPath)
+	portDataDirPath := filepath.Join(dataDirPath, strconv.Itoa(portNo))
+	helper.CreateFolder(portDataDirPath)
+	chunkPath := filepath.Join(portDataDirPath, chunkId + ".txt")
+	helper.CreateFile(chunkPath)
 }
 
 func ChunkServer(nodePid int, portNo int) {
