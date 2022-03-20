@@ -1,7 +1,6 @@
 package chunk
 
 // TODO: Look through and decide which part of the code will be run as a seperate go routine.
-// TODO: ACKmap atomic add
 // TODO: When to pad and how to know to Pad.
 // TODO: Fault tolerance, handle cases when secondary fails. How to retry?
 // TODO: Return correct offset to client
@@ -11,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync/atomic"
 
 	helper "gfs.com/master/helper"
 	structs "gfs.com/master/structs"
@@ -19,7 +19,7 @@ import (
 
 var (
 	chunkIdAppendDataMap *map[string]map[int]structs.Queue // A map where the chunkId is the key and the value is another map whose keys are the portNo that made the append request and the values are queues whose elemnts are the data that is to be appended.
-	ACKMap               *map[string]map[int]int           // TODO: Should we serialize this based on requests (request type / request ID) as well ? (If we impose a condition that the client can make only one append request at once, we will not need serialization by requests)
+	ACKMap               map[string]map[int]*int32         // TODO: Should we serialize this based on requests (request type / request ID) as well ? (If we impose a condition that the client can make only one append request at once, we will not need serialization by requests)
 	chunkLocks           *map[string]bool                  // Default value is false.
 )
 
@@ -72,7 +72,7 @@ func listen(nodePid int, portNo int) {
 func appendMessageHandler(message structs.Message) {
 	storeTempData(message.ChunkId, message.ClientPort, message.Payload)
 	if len(message.TargetPorts) > 1 { // Only for the Primary Chunk Server.
-		(*ACKMap)[message.ChunkId][message.ClientPort] += len(message.TargetPorts) - 1
+		atomic.AddInt32(ACKMap[message.ChunkId][message.ClientPort], int32(len(message.TargetPorts)-1))
 		for index, targetPort := range message.TargetPorts[1:] {
 			helper.SendMessageV2(targetPort, message, message.TargetPorts[0], []int{message.TargetPorts[index]}) // The TargetPorts attribute of the Message object is set to just one element.
 			// This is so that this for loop is only trigerred in the Primary Chunk Server and not the Secondary Chunk Servers.
@@ -85,18 +85,18 @@ func appendMessageHandler(message structs.Message) {
 }
 
 func appendACKHandler(message structs.Message) {
-	(*ACKMap)[message.ChunkId][message.ClientPort] -= 1
+	atomic.AddInt32(ACKMap[message.ChunkId][message.ClientPort], -1)
 }
 
 func commitACKHandler(message structs.Message) { // TODO: Currently, this function is same as appendACKHandler - will have to change if we decide to index the messages further.
-	(*ACKMap)[message.ChunkId][message.ClientPort] -= 1
+	atomic.AddInt32(ACKMap[message.ChunkId][message.ClientPort], -1)
 }
 
 func commitDataHandler(message structs.Message) {
 	lockChunk(message.ChunkId)
 	writeMutations(message.ChunkId, message.ClientPort, message.ChunkOffset)
 	if len(message.TargetPorts) > 1 { // Only for the Primary Chunk Server.
-		(*ACKMap)[message.ChunkId][message.ClientPort] += len(message.TargetPorts) - 1
+		atomic.AddInt32(ACKMap[message.ChunkId][message.ClientPort], int32(len(message.TargetPorts)-1))
 		for index, targetPort := range message.TargetPorts[1:] {
 			helper.SendMessageV2(targetPort, message, message.TargetPorts[0], []int{message.TargetPorts[index]}) // The TargetPorts attribute of the Message object is set to just one element.
 			// This is so that this for loop is only trigerred in the Primary Chunk Server and not the Secondary Chunk Servers.
@@ -130,7 +130,7 @@ func sendData() {} //TODO: No longer required ?
 
 func waitForACKs(chunkId string, clientPort int) {
 	for {
-		if (*ACKMap)[chunkId][clientPort] == 0 {
+		if *(ACKMap[chunkId][clientPort]) == 0 {
 			break
 		}
 	}
