@@ -16,7 +16,6 @@ import (
 // Get size of file trying to write to [Done]
 func getFileSize(filename string) (int64) {
 	
-
 	// Get relative path of the text file
 	// First arg is the main directory, second arg is where file is stored
 	rel, err := filepath.Rel("GFS/Master", "GFS/Client/test.txt")
@@ -41,18 +40,20 @@ func connectMaster(master_port string, filename string) {
 	address := "localhost:" + master_port
 	fmt.Println("Master port is " + address)
 
-	// Dial master port
+	// Dial master port == TO-DO: Change tcp to http
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	// debug to check whats the main directory, just leave it here
 	path, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
 	}
 	fmt.Println(path) 
 
+	// Call helper function to read file size
 	fileByteSize := getFileSize(filename)
 
 	// Create append message json
@@ -73,13 +74,14 @@ func connectMaster(master_port string, filename string) {
 // Send APPEND request to master [Done]
 func callAppend(conn net.Conn, req []byte) {
 
-	// write to master port
+	// write to master port == TO-DO: Change tcp to http
 	_, err := conn.Write(req)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	for {
+		// TO-DO: Change tcp to http
 		buffer := make([]byte, 1400)
 		dataSize, err := conn.Read(buffer)
 		if err != nil {
@@ -94,10 +96,9 @@ func callAppend(conn net.Conn, req []byte) {
 		var reply structs.Message
 		json.Unmarshal(data, &reply)
 		//fmt.Println(reflect.TypeOf(reply)) // debug
-		connectChunks(reply)
+		fmt.Println(reply)
 		break
 	}
-
 }
 
 // Connect client to chunk servers [Done]
@@ -111,11 +112,18 @@ func connectChunks(message structs.Message) {
 		}
 		fmt.Printf("Connected to chunk server: %d\n", s)
 	}
+
+	// should only be able to get here if all connected
+	sendPrimaryChunk(message.TargetPorts, "placeholder", message.ChunkId)
 }
 
-// Chunkserver ports, data to send, chunk_id
-func sendChunks() {
 
+// parameters: Chunkserver ports, data to send, chunk_id (Append_last_chunk)
+// Sends data to primary chunk and checks for a 
+func sendPrimaryChunk(ports []int, data string, chunkID string){
+
+	fmt.Println("here") // debug
+	
 }
 
 // Receive first ACK (data_received) from primary chunk server
@@ -127,7 +135,7 @@ func checkFirstACK() {
 func sendWriteData() {
 
 }
-
+ 
 // Receive second ACK from primary chunk server after successful write
 func checkSuccessWrite() {
 
