@@ -17,7 +17,10 @@ type MetaData struct {
 	file_id_to_chunkId map[string][]string
 
 	// map each file chunk to a chunk server (port number)
-	chunkId_to_port map[string][]string
+	chunkId_to_port map[string][]int
+
+	// map each chunkserver to the amout of space it is currently 
+	port_to_space map[int]int
 
 }
 
@@ -74,6 +77,7 @@ func listenClient(conn net.Conn, metaData MetaData){
 						metaData.file_id_to_chunkId[message.Filename] = []string{message.Filename + "_c0"}
 						last_chunk = message.Filename + "_c0"
 					}else{
+						// if file exist, take the last chunk of the file from the metadata
 						array := metaData.file_id_to_chunkId[message.Filename]
 						last_chunk = metaData.file_id_to_chunkId[message.Filename][len(array) - 1]
 					}
@@ -103,7 +107,8 @@ func main() {
 
 	var metaData MetaData
 	metaData.file_id_to_chunkId = make(map[string][]string)
-	metaData.chunkId_to_port = make(map[string][]string)
+	metaData.chunkId_to_port = make(map[string][]int)
+	metaData.port_to_space = make(map[int]int)
 
 	// listening to client on port 8000
 	listenToClient(1, "8000", metaData)
