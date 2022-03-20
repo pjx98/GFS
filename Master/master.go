@@ -6,6 +6,7 @@ import (
   client "gfs.com/master/client"
   helper "gfs.com/master/helper"
   structs "gfs.com/master/structs"
+  chunk "gfs.com/master/chunk"
   "log"
   "net"
   "github.com/gin-gonic/gin"
@@ -203,6 +204,9 @@ func main(){
 
 
   go listen()
+  chunk.ChunkServer(2,8081)
+  chunk.ChunkServer(3,8082)
+  chunk.ChunkServer(4,8083)
   client.StartClient()
   // // listening to client on port 8000
   // listenToClient(1, "8000", metaData)
